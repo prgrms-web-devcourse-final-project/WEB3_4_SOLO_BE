@@ -4,6 +4,7 @@ import com.pleasybank.account.dto.*
 import com.pleasybank.account.service.AccountService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -13,44 +14,42 @@ class AccountController(
 ) {
 
     @GetMapping
-    fun getAccounts(@AuthenticationPrincipal userId: Long): ResponseEntity<AccountListResponse> {
-        // 인증된 사용자의 ID를 가져오는 방식에 따라 다를 수 있음
-        // 여기서는 임시로 userId를 직접 받는 형태로 작성
-        val userId = 1L // 테스트용 임시 사용자 ID, 실제로는 @AuthenticationPrincipal에서 가져옴
+    fun getAccounts(@AuthenticationPrincipal userDetails: UserDetails): ResponseEntity<AccountListResponse> {
+        val userId = userDetails.username.toLong()
         val response = accountService.getAccountsList(userId)
         return ResponseEntity.ok(response)
     }
 
     @GetMapping("/{accountId}")
     fun getAccountDetail(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable accountId: Long
     ): ResponseEntity<AccountDetailResponse> {
-        val userId = 1L // 테스트용 임시 사용자 ID, 실제로는 @AuthenticationPrincipal에서 가져옴
+        val userId = userDetails.username.toLong()
         val response = accountService.getAccountDetail(userId, accountId)
         return ResponseEntity.ok(response)
     }
 
     @GetMapping("/{accountId}/balance")
     fun getAccountBalance(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable accountId: Long
     ): ResponseEntity<AccountBalanceResponse> {
-        val userId = 1L // 테스트용 임시 사용자 ID, 실제로는 @AuthenticationPrincipal에서 가져옴
+        val userId = userDetails.username.toLong()
         val response = accountService.getAccountBalance(userId, accountId)
         return ResponseEntity.ok(response)
     }
 
     @GetMapping("/{accountId}/transactions")
     fun getAccountTransactions(
-        @AuthenticationPrincipal userId: Long,
+        @AuthenticationPrincipal userDetails: UserDetails,
         @PathVariable accountId: Long,
         @RequestParam(required = false) startDate: String?,
         @RequestParam(required = false) endDate: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ResponseEntity<AccountTransactionListResponse> {
-        val userId = 1L // 테스트용 임시 사용자 ID, 실제로는 @AuthenticationPrincipal에서 가져옴
+        val userId = userDetails.username.toLong()
         
         val request = AccountTransactionListRequest(
             startDate = startDate,

@@ -26,77 +26,68 @@ class CustomOAuth2UserService(
     private val passwordEncoder: PasswordEncoder
 ) : DefaultOAuth2UserService() {
     
-    @Transactional
     override fun loadUser(userRequest: OAuth2UserRequest): OAuth2User {
         val oAuth2User = super.loadUser(userRequest)
-        
-        val registrationId = userRequest.clientRegistration.registrationId
-        val provider = getOrCreateProvider(registrationId)
-        
-        val extractedData = when (registrationId.toLowerCase()) {
-            "kakao" -> processKakaoUser(oAuth2User)
-            // 다른 OAuth 제공자 추가 가능 (네이버, 구글 등)
-            else -> throw OAuth2AuthenticationException("Unsupported OAuth provider: $registrationId")
-        }
-        
-        val oauthUserId = extractedData.id
-        
-        // OAuth 연결된 사용자 찾기
-        val userOAuth = userOAuthRepository.findByProviderIdAndOauthUserId(provider.id!!, oauthUserId)
-            .orElseGet {
-                // 연결된 사용자가 없으면 새로 생성
-                val email = extractedData.email
-                
-                val user = userRepository.findByEmail(email).orElseGet {
-                    User(
-                        email = email,
-                        password = passwordEncoder.encode(UUID.randomUUID().toString()),
-                        name = extractedData.name,
-                        phoneNumber = "", // OAuth에서 획득 불가능한 경우 빈 값 설정
-                        createdAt = LocalDateTime.now(),
-                        updatedAt = LocalDateTime.now(),
-                        status = "ACTIVE"
-                    )
-                }
-                
-                if (user.id == null) {
-                    userRepository.save(user)
-                }
-                
-                val newUserOAuth = UserOAuth(
-                    user = user,
-                    provider = provider,
-                    oauthUserId = oauthUserId,
-                    accessToken = userRequest.accessToken.tokenValue,
-                    tokenExpiresAt = LocalDateTime.now().plusSeconds(userRequest.accessToken.expiresAt?.epochSecond?.minus(System.currentTimeMillis() / 1000) ?: 0),
-                    createdAt = LocalDateTime.now(),
-                    updatedAt = LocalDateTime.now()
-                )
-                
-                userOAuthRepository.save(newUserOAuth)
-            }
-        
-        // 사용자 로그인 시간 업데이트
-        userOAuth.user.lastLoginAt = LocalDateTime.now()
-        userRepository.save(userOAuth.user)
-        
-        // OAuth 정보 업데이트
-        userOAuth.accessToken = userRequest.accessToken.tokenValue
-        userOAuth.tokenExpiresAt = LocalDateTime.now().plusSeconds(userRequest.accessToken.expiresAt?.epochSecond?.minus(System.currentTimeMillis() / 1000) ?: 0)
-        userOAuth.updatedAt = LocalDateTime.now()
-        userOAuthRepository.save(userOAuth)
-        
-        val attributes: Map<String, Any> = mapOf(
-            "id" to userOAuth.user.id!!,
-            "email" to userOAuth.user.email,
-            "name" to userOAuth.user.name,
-            "oauthId" to userOAuth.oauthUserId,
-            "provider" to provider.providerName
+        return processOAuth2User(userRequest, oAuth2User)
+    }
+    
+    @Transactional
+    protected fun processOAuth2User(userRequest: OAuth2UserRequest, oAuth2User: OAuth2User): OAuth2User {
+        val oAuth2UserInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(
+            userRequest.clientRegistration.registrationId,
+            oAuth2User.attributes
         )
-        
-        val authorities = Collections.singleton(SimpleGrantedAuthority("ROLE_USER"))
-        
-        return DefaultOAuth2User(authorities, attributes, "email")
+
+        if (oAuth2UserInfo.getEmail().isNullOrBlank()) {
+            throw IllegalArgumentException("이메일을 찾을 수 없습니다.")
+        }
+
+        var user = userRepository.findByEmail(oAuth2UserInfo.getEmail()).orElse(null)
+
+        if (user != null) {
+            user = updateExistingUser(user, oAuth2UserInfo)
+        } else {
+            user = registerNewUser(userRequest, oAuth2UserInfo)
+        }
+
+        val attributes = mapOf(
+            "id" to user.id,
+            "email" to user.email,
+            "name" to user.name,
+            "provider" to user.provider
+        )
+
+        return DefaultOAuth2User(
+            Collections.singleton(SimpleGrantedAuthority("ROLE_USER")),
+            attributes,
+            "id"
+        )
+    }
+    
+    @Transactional
+    protected fun registerNewUser(userRequest: OAuth2UserRequest, oAuth2UserInfo: OAuth2UserInfo): User {
+        val now = LocalDateTime.now()
+        val user = User(
+            email = oAuth2UserInfo.getEmail()!!,
+            password = "", // OAuth2 사용자는 비밀번호 없음
+            name = oAuth2UserInfo.getName() ?: "사용자",
+            profileImage = oAuth2UserInfo.getImageUrl(),
+            provider = userRequest.clientRegistration.registrationId,
+            providerId = oAuth2UserInfo.getId(),
+            createdAt = now,
+            updatedAt = now,
+            status = "ACTIVE"
+        )
+
+        return userRepository.save(user)
+    }
+    
+    @Transactional
+    protected fun updateExistingUser(user: User, oAuth2UserInfo: OAuth2UserInfo): User {
+        user.name = oAuth2UserInfo.getName() ?: user.name
+        user.profileImage = oAuth2UserInfo.getImageUrl() ?: user.profileImage
+        user.updatedAt = LocalDateTime.now()
+        return userRepository.save(user)
     }
     
     private fun getOrCreateProvider(providerName: String): OAuthProvider {

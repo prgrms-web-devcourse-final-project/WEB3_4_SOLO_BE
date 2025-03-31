@@ -16,47 +16,33 @@ data class User(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     
-    @Column(nullable = false, unique = true)
+    @Column(unique = true, nullable = false)
     val email: String,
     
     @Column(nullable = false)
-    val password: String,
+    var password: String,
     
     @Column(nullable = false)
-    val name: String,
+    var name: String,
     
-    @Column(nullable = false, name = "phone_number")
-    val phoneNumber: String,
+    var phoneNumber: String? = null,
     
-    @Column(name = "birth_date")
-    val birthDate: LocalDate? = null,
+    // OAuth2 관련 필드
+    var provider: String? = null,
     
-    val address: String? = null,
+    var providerId: String? = null,
     
-    @Column(nullable = false, name = "created_at")
-    val createdAt: LocalDateTime = LocalDateTime.now(),
+    var profileImage: String? = null,
     
-    @Column(nullable = false, name = "updated_at")
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    // 계정 상태 및 시간 관련 필드
+    @Column(nullable = false)
+    var status: String, // ACTIVE, INACTIVE, LOCKED
     
-    @Column(name = "last_login_at")
     var lastLoginAt: LocalDateTime? = null,
     
     @Column(nullable = false)
-    var status: String = "ACTIVE",
+    val createdAt: LocalDateTime,
     
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val authentications: MutableList<UserAuthentication> = mutableListOf(),
-    
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val oauthConnections: MutableList<UserOAuth> = mutableListOf(),
-    
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val passwordResets: MutableList<PasswordReset> = mutableListOf(),
-    
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val accounts: MutableList<Account> = mutableListOf(),
-    
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val notifications: MutableList<Notification> = mutableListOf()
+    @Column(nullable = false)
+    var updatedAt: LocalDateTime
 ) 
