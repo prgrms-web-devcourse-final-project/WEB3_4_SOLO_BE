@@ -1,18 +1,40 @@
-# 데이터베이스 설정
-spring.datasource.url=jdbc:h2:mem:pleasybank
-spring.datasource.username=sa
-spring.datasource.password=
-spring.datasource.driver-class-name=org.h2.Driver
-
-# JPA 설정
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-
-# H2 콘솔 설정 (개발 환경용)
-spring.h2.console.enabled=true
-spring.h2.console.path=/h2-console
+spring:
+  datasource:
+    url: jdbc:h2:mem:pleasybank
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID:your-client-id}
+            client-secret: ${KAKAO_CLIENT_SECRET:your-client-secret}
+            redirect-uri: "{baseUrl}/api/auth/oauth2/callback/kakao"
+            authorization-grant-type: authorization_code
+            client-authentication-method: POST
+            client-name: Kakao
+            scope:
+              - profile_nickname
+              - profile_image
+              - account_email
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
 
 # 로깅 설정
 logging.level.org.hibernate.SQL=DEBUG
@@ -27,20 +49,11 @@ jwt.secret=pleasyBankSecretKey12345678901234567890123456789012345678901234567890
 jwt.expiration=86400000
 jwt.refresh-expiration=604800000
 
-# OAuth2 설정
-spring.security.oauth2.client.registration.kakao.client-id=${KAKAO_CLIENT_ID:kakao-client-id}
-spring.security.oauth2.client.registration.kakao.client-secret=${KAKAO_CLIENT_SECRET:kakao-client-secret}
-spring.security.oauth2.client.registration.kakao.redirect-uri={baseUrl}/api/auth/oauth2/callback/{registrationId}
-spring.security.oauth2.client.registration.kakao.authorization-grant-type=authorization_code
-spring.security.oauth2.client.registration.kakao.scope=profile_nickname,account_email
-spring.security.oauth2.client.registration.kakao.client-name=Kakao
-spring.security.oauth2.client.registration.kakao.client-authentication-method=client_secret_post
-
-# OAuth2 프로바이더 설정
-spring.security.oauth2.client.provider.kakao.authorization-uri=https://kauth.kakao.com/oauth/authorize
-spring.security.oauth2.client.provider.kakao.token-uri=https://kauth.kakao.com/oauth/token
-spring.security.oauth2.client.provider.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me
-spring.security.oauth2.client.provider.kakao.user-name-attribute=id
-
-# OAuth2 리다이렉트 URI (프론트엔드 주소로 설정)
-oauth2.redirect-uri=http://localhost:3000/oauth/callback 
+app:
+  auth:
+    token-secret: ${JWT_SECRET:pleasyBankSecretKey012345678901234567890123456789}
+    token-expiration-ms: 3600000  # 1 hour
+    refresh-token-expiration-ms: 2592000000  # 30 days
+  oauth2:
+    authorized-redirect-uris:
+      - http://localhost:3000/oauth2/redirect

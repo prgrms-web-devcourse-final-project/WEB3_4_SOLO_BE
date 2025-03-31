@@ -1,82 +1,72 @@
 package com.pleasybank.security.jwt
 
 import io.jsonwebtoken.Claims
+import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.MalformedJwtException
 import io.jsonwebtoken.SignatureAlgorithm
-import io.jsonwebtoken.security.Keys
+import io.jsonwebtoken.SignatureException
+import io.jsonwebtoken.UnsupportedJwtException
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-import org.springframework.security.core.Authentication
-import org.springframework.security.core.authority.SimpleGrantedAuthority
-import org.springframework.security.core.userdetails.User
 import org.springframework.stereotype.Component
-import java.util.*
-import javax.crypto.SecretKey
+import java.util.Date
 
 @Component
 class JwtTokenProvider(
-    @Value("\${jwt.secret}") private val secretString: String,
-    @Value("\${jwt.expiration}") private val expirationMs: Long,
-    @Value("\${jwt.refresh-expiration}") private val refreshExpirationMs: Long
+    @Value("\${app.auth.token-secret}") private val jwtSecret: String,
+    @Value("\${app.auth.token-expiration-ms}") private val jwtExpirationMs: Long,
+    @Value("\${app.auth.refresh-token-expiration-ms}") private val refreshTokenExpirationMs: Long
 ) {
-    private val secretKey: SecretKey by lazy {
-        Keys.hmacShaKeyFor(secretString.toByteArray())
-    }
-    
-    fun createToken(username: String, role: String): String {
-        val claims: Claims = Jwts.claims().setSubject(username)
-        claims["role"] = role
-        
+
+    fun createToken(userId: String, role: String): String {
         val now = Date()
-        val expiryDate = Date(now.time + expirationMs)
-        
+        val expiryDate = Date(now.time + jwtExpirationMs)
+
         return Jwts.builder()
-            .setClaims(claims)
+            .setSubject(userId)
+            .claim("role", role)
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(secretKey, SignatureAlgorithm.HS512)
+            .signWith(SignatureAlgorithm.HS512, jwtSecret)
             .compact()
     }
-    
-    fun createRefreshToken(username: String): String {
+
+    fun createRefreshToken(userId: String): String {
         val now = Date()
-        val expiryDate = Date(now.time + refreshExpirationMs)
-        
+        val expiryDate = Date(now.time + refreshTokenExpirationMs)
+
         return Jwts.builder()
-            .setSubject(username)
+            .setSubject(userId)
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(secretKey, SignatureAlgorithm.HS512)
+            .signWith(SignatureAlgorithm.HS512, jwtSecret)
             .compact()
     }
-    
-    fun getAuthentication(token: String): Authentication {
-        val claims = getClaims(token)
-        val authorities = listOf(SimpleGrantedAuthority(claims["role"].toString()))
-        
-        val principal = User(claims.subject, "", authorities)
-        
-        return UsernamePasswordAuthenticationToken(principal, token, authorities)
-    }
-    
-    fun validateToken(token: String): Boolean {
-        try {
-            val claims = getClaims(token)
-            return !claims.expiration.before(Date())
-        } catch (e: Exception) {
-            return false
-        }
-    }
-    
-    fun getUsername(token: String): String {
-        return getClaims(token).subject
-    }
-    
-    private fun getClaims(token: String): Claims {
-        return Jwts.parserBuilder()
-            .setSigningKey(secretKey)
-            .build()
+
+    fun getUserIdFromToken(token: String): String {
+        val claims = Jwts.parser()
+            .setSigningKey(jwtSecret)
             .parseClaimsJws(token)
             .body
+
+        return claims.subject
+    }
+
+    fun validateToken(authToken: String): Boolean {
+        try {
+            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken)
+            return true
+        } catch (ex: SignatureException) {
+            // 잘못된 JWT 서명
+        } catch (ex: MalformedJwtException) {
+            // 잘못된 JWT 토큰
+        } catch (ex: ExpiredJwtException) {
+            // 만료된 JWT 토큰
+        } catch (ex: UnsupportedJwtException) {
+            // 지원되지 않는 JWT 토큰
+        } catch (ex: IllegalArgumentException) {
+            // JWT 토큰이 비어있음
+        }
+        return false
     }
 } 
