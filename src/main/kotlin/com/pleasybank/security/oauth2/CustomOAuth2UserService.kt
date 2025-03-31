@@ -1,11 +1,11 @@
 package com.pleasybank.security.oauth2
 
-import com.pleasybank.entity.oauthprovider.OAuthProvider
-import com.pleasybank.entity.user.User
-import com.pleasybank.entity.useroauth.UserOAuth
-import com.pleasybank.repository.OAuthProviderRepository
-import com.pleasybank.repository.UserOAuthRepository
-import com.pleasybank.repository.UserRepository
+import com.pleasybank.authentication.entity.OAuthProvider
+import com.pleasybank.authentication.entity.UserOAuth
+import com.pleasybank.authentication.repository.OAuthProviderRepository
+import com.pleasybank.authentication.repository.UserOAuthRepository
+import com.pleasybank.user.entity.User
+import com.pleasybank.user.repository.UserRepository
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
