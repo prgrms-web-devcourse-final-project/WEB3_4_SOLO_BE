@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>잘못된 요청</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+        h1 { color: #F44336; }
+        pre { background-color: #f5f5f5; padding: 15px; border-radius: 5px; text-align: left; }
+        .error-details { 
+            background-color: #FFEBEE;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .action-button {
+            display: inline-block;
+            margin-top: 20px;
+            background-color: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .action-button:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <h1>400 - 잘못된 요청</h1>
+    <p>요청 처리 중 문제가 발생했습니다</p>
+    
+    <div class="error-details">
+        <p><strong>오류 메시지:</strong> <span th:text="${errorMessage}">잘못된 요청입니다</span></p>
+        <p><strong>문제 원인:</strong></p>
+        <ul>
+            <li>요청 파라미터가 잘못되었거나 누락되었을 수 있습니다</li>
+            <li>세션이 만료되었거나 쿠키가 차단되었을 수 있습니다</li>
+            <li>브라우저 캐시 문제가 발생했을 수 있습니다</li>
+        </ul>
+    </div>
+    
+    <a href="/oauth2/authorize/kakao" class="action-button">카카오 로그인 다시 시도하기</a>
+</body>
+</html> 

@@ -17,4 +17,6 @@ interface UserRepository : JpaRepository<User, Long> {
     
     @Query("SELECT u FROM User u WHERE u.status = :status")
     fun findByStatus(@Param("status") status: String): List<User>
+    
+    fun findByProviderAndProviderId(provider: String, providerId: String): Optional<User>
 } 

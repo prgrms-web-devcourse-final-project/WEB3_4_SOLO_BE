@@ -20,8 +20,8 @@ class KakaoOAuth2UserInfo(attributes: Map<String, Any>) : OAuth2UserInfo(attribu
     }
 
     override fun getEmail(): String? {
-        val kakaoAccount = attributes["kakao_account"] as? Map<String, Any>
-        return kakaoAccount?.get("email") as? String
+        // 이메일 권한 없음 - 항상 null 반환
+        return null
     }
 
     override fun getImageUrl(): String? {
