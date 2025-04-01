@@ -3,6 +3,7 @@ package com.pleasybank.transaction.service
 import com.pleasybank.account.repository.AccountRepository
 import com.pleasybank.authentication.service.AuthService
 import com.pleasybank.transaction.dto.*
+import com.pleasybank.transaction.entity.Transaction
 import com.pleasybank.transaction.repository.TransactionRepository
 import com.pleasybank.user.repository.UserRepository
 import org.springframework.stereotype.Service
@@ -49,24 +50,36 @@ class TransactionService(
         // 거래 수수료 (실제로는 거래 금액이나 유형에 따라 다를 수 있음)
         val fee = BigDecimal.ZERO
         
-        // 계좌 잔액 업데이트
-        sourceAccount.balance = sourceAccount.balance.subtract(request.amount)
-        destinationAccount.balance = destinationAccount.balance.add(request.amount)
+        // 계좌 잔액 업데이트 (copy 패턴 사용)
+        val updatedSourceAccount = sourceAccount.copy(
+            balance = sourceAccount.balance.subtract(request.amount),
+            updatedAt = LocalDateTime.now(),
+            lastActivityDate = LocalDateTime.now()
+        )
         
-        accountRepository.save(sourceAccount)
-        accountRepository.save(destinationAccount)
+        val updatedDestinationAccount = destinationAccount.copy(
+            balance = destinationAccount.balance.add(request.amount),
+            updatedAt = LocalDateTime.now(),
+            lastActivityDate = LocalDateTime.now()
+        )
+        
+        accountRepository.save(updatedSourceAccount)
+        accountRepository.save(updatedDestinationAccount)
         
         // 거래 정보 저장
-        val transaction = com.pleasybank.transaction.entity.Transaction(
+        val transactionNumber = generateReferenceNumber()
+        val transaction = Transaction(
+            transactionNumber = transactionNumber,
             transactionDate = LocalDateTime.now(),
             amount = request.amount,
+            totalAmount = request.amount.add(fee),
             fee = fee,
             description = request.description,
-            sourceAccount = sourceAccount,
-            destinationAccount = destinationAccount,
+            sourceAccount = updatedSourceAccount,
+            destinationAccount = updatedDestinationAccount,
             transactionType = "TRANSFER",
             status = "COMPLETED",
-            referenceNumber = generateReferenceNumber()
+            referenceNumber = transactionNumber
         )
         
         val savedTransaction = transactionRepository.save(transaction)
@@ -74,15 +87,15 @@ class TransactionService(
         // 응답 생성
         return TransferResponse(
             transactionId = savedTransaction.id!!,
-            sourceAccountId = sourceAccount.id!!,
-            sourceAccountNumber = sourceAccount.accountNumber,
-            destinationAccountNumber = destinationAccount.accountNumber,
+            sourceAccountId = updatedSourceAccount.id!!,
+            sourceAccountNumber = updatedSourceAccount.accountNumber,
+            destinationAccountNumber = updatedDestinationAccount.accountNumber,
             amount = request.amount,
             fee = fee,
             description = request.description,
             status = "COMPLETED",
             transactionDate = savedTransaction.transactionDate,
-            remainingBalance = sourceAccount.balance,
+            remainingBalance = updatedSourceAccount.balance,
             message = "이체가 성공적으로 완료되었습니다."
         )
     }
@@ -112,6 +125,7 @@ class TransactionService(
         // 응답 생성
         return TransactionDetailResponse(
             id = transaction.id!!,
+            transactionNumber = transaction.transactionNumber,
             transactionDate = transaction.transactionDate,
             sourceAccountId = sourceAccount?.id,
             sourceAccountNumber = sourceAccount?.accountNumber,
@@ -121,6 +135,7 @@ class TransactionService(
             destinationAccountName = destinationAccount?.accountName,
             amount = transaction.amount,
             fee = transaction.fee,
+            totalAmount = transaction.totalAmount,
             description = transaction.description,
             transactionType = transaction.transactionType,
             status = transaction.status,
@@ -172,29 +187,41 @@ class TransactionService(
             )
         }
         
-        // 계좌 잔액 업데이트 (원래 거래의 역방향)
-        sourceAccount.balance = sourceAccount.balance.add(transaction.amount)
-        destinationAccount.balance = destinationAccount.balance.subtract(transaction.amount)
+        // 계좌 잔액 업데이트 (copy 패턴 사용)
+        val updatedSourceAccount = sourceAccount.copy(
+            balance = sourceAccount.balance.add(transaction.amount),
+            updatedAt = now,
+            lastActivityDate = now
+        )
         
-        accountRepository.save(sourceAccount)
-        accountRepository.save(destinationAccount)
+        val updatedDestinationAccount = destinationAccount.copy(
+            balance = destinationAccount.balance.subtract(transaction.amount),
+            updatedAt = now,
+            lastActivityDate = now
+        )
         
-        // 원래 거래 상태 업데이트
-        transaction.status = "CANCELLED"
-        transactionRepository.save(transaction)
+        accountRepository.save(updatedSourceAccount)
+        accountRepository.save(updatedDestinationAccount)
+        
+        // 원래 거래 상태 업데이트 (copy 패턴 사용)
+        val updatedTransaction = transaction.copy(status = "CANCELLED")
+        transactionRepository.save(updatedTransaction)
         
         // 취소 거래 생성
-        val cancelTransaction = com.pleasybank.transaction.entity.Transaction(
+        val transactionNumber = generateReferenceNumber()
+        val cancelTransaction = Transaction(
+            transactionNumber = transactionNumber,
             transactionDate = now,
             amount = transaction.amount,
+            totalAmount = transaction.amount,
             fee = BigDecimal.ZERO,
             description = "취소: ${transaction.description ?: ""} - 사유: ${request.reason ?: ""}",
-            sourceAccount = destinationAccount,  // 원래 수취인이 출금자가 됨
-            destinationAccount = sourceAccount,  // 원래 출금자가 수취인이 됨
+            sourceAccount = updatedDestinationAccount,  // 원래 수취인이 출금자가 됨
+            destinationAccount = updatedSourceAccount,  // 원래 출금자가 수취인이 됨
             transactionType = "CANCELLATION",
             status = "COMPLETED",
-            referenceNumber = generateReferenceNumber(),
-            relatedTransaction = transaction
+            referenceNumber = transactionNumber,
+            relatedTransaction = updatedTransaction
         )
         
         val savedCancelTransaction = transactionRepository.save(cancelTransaction)

@@ -28,7 +28,10 @@ data class Notification(
     val relatedId: Long? = null,
     
     @Column(nullable = false, name = "is_read")
-    var isRead: Boolean = false,
+    val isRead: Boolean = false,
+    
+    @Column(name = "extra_data", columnDefinition = "TEXT")
+    val extraData: String? = null,
     
     @Column(nullable = false, name = "created_at")
     val createdAt: LocalDateTime = LocalDateTime.now()

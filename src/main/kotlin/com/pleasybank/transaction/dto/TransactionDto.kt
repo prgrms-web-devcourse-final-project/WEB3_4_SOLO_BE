@@ -34,23 +34,20 @@ data class TransferResponse(
 // 거래 상세 조회 응답 DTO
 data class TransactionDetailResponse(
     val id: Long,
-    
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    val transactionDate: LocalDateTime,
-    
+    val transactionNumber: String,
     val sourceAccountId: Long?,
     val sourceAccountNumber: String?,
     val sourceAccountName: String?,
-    
     val destinationAccountId: Long?,
     val destinationAccountNumber: String?,
     val destinationAccountName: String?,
-    
     val amount: BigDecimal,
     val fee: BigDecimal,
-    val description: String?,
+    val totalAmount: BigDecimal,
     val transactionType: String,
     val status: String,
+    val description: String?,
+    val transactionDate: LocalDateTime,
     val referenceNumber: String
 )
 
@@ -98,4 +95,44 @@ data class ScheduledTransferResponse(
     val recurringPeriod: String?,
     val status: String,
     val message: String?
+)
+
+// 거래 생성 요청 DTO
+data class TransactionCreateRequest(
+    val sourceAccountId: Long,
+    val destinationAccountId: Long,
+    val amount: BigDecimal,
+    val description: String? = null
+)
+
+// 거래 목록 요청 DTO
+data class TransactionListRequest(
+    val accountId: Long? = null,
+    val startDate: LocalDateTime? = null,
+    val endDate: LocalDateTime? = null,
+    val type: String? = null,
+    val page: Int = 0,
+    val size: Int = 20
+)
+
+// 거래 목록 응답 DTO
+data class TransactionListResponse(
+    val content: List<TransactionSummary>,
+    val page: Int,
+    val size: Int,
+    val totalElements: Long,
+    val totalPages: Int
+)
+
+// 거래 요약 DTO
+data class TransactionSummary(
+    val id: Long,
+    val transactionNumber: String,
+    val counterpartyName: String?,
+    val counterpartyAccountNumber: String?,
+    val amount: BigDecimal,
+    val transactionType: String,
+    val description: String?,
+    val transactionDate: LocalDateTime,
+    val isDebit: Boolean
 ) 

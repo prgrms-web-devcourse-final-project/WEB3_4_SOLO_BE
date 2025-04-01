@@ -62,9 +62,9 @@ class AuthService(
             throw BadCredentialsException("Invalid credentials")
         }
         
-        // 마지막 로그인 시간 업데이트
-        user.lastLoginAt = LocalDateTime.now()
-        userRepository.save(user)
+        // 마지막 로그인 시간 업데이트 (copy 패턴 사용)
+        val updatedUser = user.copy(lastLoginAt = LocalDateTime.now())
+        userRepository.save(updatedUser)
         
         val accessToken = jwtTokenProvider.createToken(user.email, "ROLE_USER")
         val refreshToken = jwtTokenProvider.createRefreshToken(user.email)
@@ -85,8 +85,8 @@ class AuthService(
         // 기존 만료되지 않은 토큰이 있다면 만료 처리
         val now = LocalDateTime.now()
         val activeResets = passwordResetRepository.findByUserIdAndIsUsedFalseAndExpiresAtAfter(user.id!!, now)
-        activeResets.forEach { it.isUsed = true }
-        passwordResetRepository.saveAll(activeResets)
+        val updatedResets = activeResets.map { it.copy(isUsed = true) }
+        passwordResetRepository.saveAll(updatedResets)
         
         // 새 토큰 생성
         val token = UUID.randomUUID().toString()
@@ -96,7 +96,8 @@ class AuthService(
             user = user,
             token = token,
             expiresAt = expiresAt,
-            createdAt = now
+            createdAt = now,
+            isUsed = false
         )
         
         passwordResetRepository.save(passwordReset)
@@ -124,15 +125,17 @@ class AuthService(
             throw IllegalArgumentException("만료된 토큰입니다.")
         }
         
-        // 비밀번호 업데이트
+        // 비밀번호 업데이트 (copy 패턴 사용)
         val user = passwordReset.user
-        user.password = passwordEncoder.encode(request.newPassword)
-        user.updatedAt = now
-        userRepository.save(user)
+        val updatedUser = user.copy(
+            password = passwordEncoder.encode(request.newPassword),
+            updatedAt = now
+        )
+        userRepository.save(updatedUser)
         
-        // 토큰 사용 처리
-        passwordReset.isUsed = true
-        passwordResetRepository.save(passwordReset)
+        // 토큰 사용 처리 (copy 패턴 사용)
+        val updatedReset = passwordReset.copy(isUsed = true)
+        passwordResetRepository.save(updatedReset)
         
         return NewPasswordResponse(message = "비밀번호가 성공적으로 변경되었습니다.")
     }

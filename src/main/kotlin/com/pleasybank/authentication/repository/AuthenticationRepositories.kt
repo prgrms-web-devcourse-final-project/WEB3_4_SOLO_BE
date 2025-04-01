@@ -25,11 +25,19 @@ interface OAuthProviderRepository : JpaRepository<OAuthProvider, Long> {
 }
 
 interface UserOAuthRepository : JpaRepository<UserOAuth, Long> {
-    fun findByUserIdAndProviderId(userId: Long, providerId: Long): Optional<UserOAuth>
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.user.id = :userId AND uo.provider.id = :providerId")
+    fun findByUserIdAndProviderId(
+        @Param("userId") userId: Long, 
+        @Param("providerId") providerId: Long
+    ): Optional<UserOAuth>
     
-    fun findByProviderIdAndOauthUserId(providerId: Long, oauthUserId: String): Optional<UserOAuth>
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.provider.id = :providerId AND uo.oauthUserId = :oauthUserId")
+    fun findByProviderIdAndOauthUserId(
+        @Param("providerId") providerId: Long, 
+        @Param("oauthUserId") oauthUserId: String
+    ): Optional<UserOAuth>
     
-    @Query("SELECT uo FROM UserOAuth uo JOIN FETCH uo.user WHERE uo.providerId = :providerId AND uo.oauthUserId = :oauthUserId")
+    @Query("SELECT uo FROM UserOAuth uo JOIN FETCH uo.user WHERE uo.provider.id = :providerId AND uo.oauthUserId = :oauthUserId")
     fun findByProviderIdAndOauthUserIdWithUser(
         @Param("providerId") providerId: Long, 
         @Param("oauthUserId") oauthUserId: String

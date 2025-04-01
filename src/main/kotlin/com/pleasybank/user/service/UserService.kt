@@ -25,17 +25,21 @@ class UserService(
         val bioAuthEnabled = userAuthenticationRepository.existsByUserIdAndAuthType(userId, "FINGERPRINT") || 
                 userAuthenticationRepository.existsByUserIdAndAuthType(userId, "FACE")
         
+        // 계좌 수와 총 잔액 계산
+        val accountCount = user.accounts.size
+        val totalBalance = user.accounts.sumOf { it.balance }
+        
         return UserProfileResponse(
             id = user.id!!,
-            username = user.email, // 사용자명으로 이메일 사용
             email = user.email,
             name = user.name,
-            phone = user.phoneNumber,
-            address = user.address,
-            pinEnabled = pinEnabled,
+            phoneNumber = user.phoneNumber ?: "",
+            accountCount = accountCount,
+            totalBalance = totalBalance,
+            pinAuthEnabled = pinEnabled,
             bioAuthEnabled = bioAuthEnabled,
-            createdAt = user.createdAt,
-            lastLoginAt = user.lastLoginAt
+            lastLogin = user.lastLoginAt,
+            status = user.status
         )
     }
     
@@ -44,19 +48,19 @@ class UserService(
         val user = userRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다.") }
         
-        // 변경할 필드 업데이트
-        user.name = request.name
-        user.phoneNumber = request.phone
-        user.address = request.address
-        user.updatedAt = LocalDateTime.now()
+        // 불변 객체 패턴 사용 - copy 메서드 사용
+        val updatedUser = user.copy(
+            name = request.name,
+            phoneNumber = request.phoneNumber,
+            updatedAt = LocalDateTime.now()
+        )
         
-        val updatedUser = userRepository.save(user)
+        userRepository.save(updatedUser)
         
         return UserProfileUpdateResponse(
             id = updatedUser.id!!,
             name = updatedUser.name,
-            phone = updatedUser.phoneNumber,
-            address = updatedUser.address,
+            phoneNumber = updatedUser.phoneNumber ?: "",
             updatedAt = updatedUser.updatedAt
         )
     }
