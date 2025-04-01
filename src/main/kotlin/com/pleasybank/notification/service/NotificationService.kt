@@ -1,6 +1,7 @@
 package com.pleasybank.notification.service
 
 import com.pleasybank.notification.dto.*
+import com.pleasybank.notification.entity.Notification
 import com.pleasybank.notification.repository.NotificationRepository
 import com.pleasybank.notification.repository.NotificationSettingsRepository
 import com.pleasybank.user.repository.UserRepository
@@ -30,14 +31,14 @@ class NotificationService(
         val unreadCount = notificationRepository.countByUserIdAndIsReadFalse(userId)
         
         val notificationSummaries = notificationsPage.content.map { notification ->
-            NotificationListResponse.NotificationSummary(
+            NotificationSummary(
                 id = notification.id!!,
                 title = notification.title,
-                message = notification.message,
+                content = notification.content,
                 notificationType = notification.notificationType,
                 isRead = notification.isRead,
                 createdAt = notification.createdAt,
-                data = notification.data?.let { convertStringToMap(it) }
+                extraData = notification.extraData?.let { convertStringToMap(it) }
             )
         }
         
@@ -47,7 +48,7 @@ class NotificationService(
             totalElements = notificationsPage.totalElements,
             totalPages = notificationsPage.totalPages,
             size = notificationsPage.size,
-            number = notificationsPage.number
+            page = notificationsPage.number
         )
     }
     
@@ -64,11 +65,11 @@ class NotificationService(
         return NotificationDetailResponse(
             id = notification.id!!,
             title = notification.title,
-            message = notification.message,
+            content = notification.content,
             notificationType = notification.notificationType,
             isRead = notification.isRead,
             createdAt = notification.createdAt,
-            data = notification.data?.let { convertStringToMap(it) }
+            extraData = notification.extraData?.let { convertStringToMap(it) }
         )
     }
     
@@ -88,16 +89,18 @@ class NotificationService(
         
         // 이미 읽은 알림 제외하고 읽음 처리
         val unreadNotifications = notifications.filter { !it.isRead }
-        unreadNotifications.forEach { it.isRead = true }
+        val updatedNotifications = unreadNotifications.map { 
+            it.copy(isRead = true) 
+        }
         
-        if (unreadNotifications.isNotEmpty()) {
-            notificationRepository.saveAll(unreadNotifications)
+        if (updatedNotifications.isNotEmpty()) {
+            notificationRepository.saveAll(updatedNotifications)
         }
         
         return MarkNotificationReadResponse(
-            markedAsRead = unreadNotifications.size,
+            markedAsRead = updatedNotifications.size,
             success = true,
-            message = "${unreadNotifications.size}개의 알림이 읽음으로 표시되었습니다."
+            message = "${updatedNotifications.size}개의 알림이 읽음으로 표시되었습니다."
         )
     }
     
@@ -105,9 +108,9 @@ class NotificationService(
     fun createNotification(
         userId: Long,
         title: String,
-        message: String,
+        content: String,
         notificationType: String,
-        data: Map<String, Any>? = null
+        extraData: Map<String, Any>? = null
     ) {
         val user = userRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다.") }
@@ -131,16 +134,16 @@ class NotificationService(
         }
         
         // 알림 데이터를 JSON 문자열로 변환
-        val dataString = data?.let { convertMapToString(it) }
+        val dataString = extraData?.let { convertMapToString(it) }
         
-        val notification = com.pleasybank.notification.entity.Notification(
+        val notification = Notification(
             user = user,
             title = title,
-            message = message,
+            content = content,
             notificationType = notificationType,
             isRead = false,
             createdAt = LocalDateTime.now(),
-            data = dataString
+            extraData = dataString
         )
         
         notificationRepository.save(notification)

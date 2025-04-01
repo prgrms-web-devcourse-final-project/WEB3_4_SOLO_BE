@@ -16,33 +16,38 @@ data class User(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     val email: String,
     
     @Column(nullable = false)
-    var password: String,
+    val password: String,
     
     @Column(nullable = false)
-    var name: String,
+    val name: String,
     
-    var phoneNumber: String? = null,
+    val phoneNumber: String? = null,
     
-    // OAuth2 관련 필드
-    var provider: String? = null,
-    
-    var providerId: String? = null,
-    
-    var profileImage: String? = null,
-    
-    // 계정 상태 및 시간 관련 필드
-    @Column(nullable = false)
-    var status: String, // ACTIVE, INACTIVE, LOCKED
-    
-    var lastLoginAt: LocalDateTime? = null,
+    val profileImageUrl: String? = null,
     
     @Column(nullable = false)
-    val createdAt: LocalDateTime,
+    val status: String = "ACTIVE", // ACTIVE, INACTIVE, BLOCKED, DELETED
     
     @Column(nullable = false)
-    var updatedAt: LocalDateTime
+    val role: String = "ROLE_USER",
+    
+    @Column(nullable = false)
+    val provider: String = "LOCAL", // LOCAL, KAKAO, NAVER, GOOGLE
+    
+    val providerId: String? = null,
+    
+    @Column(nullable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+    
+    @Column(nullable = false)
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    
+    val lastLoginAt: LocalDateTime? = null,
+    
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL])
+    val accounts: MutableList<Account> = mutableListOf()
 ) 

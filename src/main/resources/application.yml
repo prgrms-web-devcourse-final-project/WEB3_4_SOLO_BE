@@ -14,14 +14,15 @@ spring:
   h2:
     console:
       enabled: true
+      path: /h2-console
   security:
     oauth2:
       client:
         registration:
           kakao:
-            client-id: ${KAKAO_CLIENT_ID:your-client-id}
-            client-secret: ${KAKAO_CLIENT_SECRET:your-client-secret}
-            redirect-uri: "{baseUrl}/api/auth/oauth2/callback/kakao"
+            client-id: dfbb49ef3546d43dae6f375358b0008e
+            client-secret: 35MeziawqseZYqTsecXvsLnNWuMhUXjj
+            redirect-uri: http://localhost:8080/api/auth/oauth2/callback/kakao
             authorization-grant-type: authorization_code
             client-authentication-method: POST
             client-name: Kakao
@@ -37,18 +38,18 @@ spring:
             user-name-attribute: id
 
 # 로깅 설정
-logging.level.org.hibernate.SQL=DEBUG
-logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 # 서버 설정
-server.port=8080
-server.servlet.context-path=/api
+server:
+  port: 8080
+  servlet:
+    context-path: /api
 
-# JWT 설정
-jwt.secret=pleasyBankSecretKey123456789012345678901234567890123456789012345678901234567890
-jwt.expiration=86400000
-jwt.refresh-expiration=604800000
-
+# JWT 및 인증 설정
 app:
   auth:
     token-secret: ${JWT_SECRET:pleasyBankSecretKey012345678901234567890123456789}

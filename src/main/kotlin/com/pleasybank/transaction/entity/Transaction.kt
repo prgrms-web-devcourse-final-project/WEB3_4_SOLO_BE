@@ -26,6 +26,9 @@ data class Transaction(
     @Column(nullable = false, precision = 19, scale = 4)
     val amount: BigDecimal,
     
+    @Column(nullable = false, precision = 19, scale = 4, name = "total_amount")
+    val totalAmount: BigDecimal,
+    
     @Column(nullable = false, name = "transaction_type")
     val transactionType: String,
     
@@ -35,7 +38,16 @@ data class Transaction(
     val status: String,
     
     @Column(nullable = false, name = "transaction_date")
-    val transactionDate: LocalDateTime = LocalDateTime.now(),
+    val transactionDate: LocalDateTime,
+    
+    @Column(nullable = false, precision = 19, scale = 4)
+    val fee: BigDecimal = BigDecimal.ZERO,
+    
+    val referenceNumber: String,
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "related_transaction_id")
+    val relatedTransaction: Transaction? = null,
     
     @Column(nullable = false, name = "created_at")
     val createdAt: LocalDateTime = LocalDateTime.now()

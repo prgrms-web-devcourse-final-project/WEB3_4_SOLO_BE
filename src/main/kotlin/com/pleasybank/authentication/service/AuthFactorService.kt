@@ -32,15 +32,19 @@ class AuthFactorService(
                     authType = "PIN",
                     authValue = "",
                     createdAt = LocalDateTime.now(),
-                    updatedAt = LocalDateTime.now()
+                    updatedAt = LocalDateTime.now(),
+                    isEnabled = false
                 )
             )
         
-        userAuth.authValue = passwordEncoder.encode(request.pinCode)
-        userAuth.updatedAt = LocalDateTime.now()
-        userAuth.isEnabled = true
+        // copy를 사용하여 새 인스턴스 생성 (불변 객체 패턴)
+        val updatedAuth = userAuth.copy(
+            authValue = passwordEncoder.encode(request.pinCode),
+            updatedAt = LocalDateTime.now(),
+            isEnabled = true
+        )
         
-        userAuthenticationRepository.save(userAuth)
+        userAuthenticationRepository.save(updatedAuth)
         
         return PinSetupResponse(message = "PIN 코드가 성공적으로 설정되었습니다.")
     }
@@ -58,8 +62,8 @@ class AuthFactorService(
         }
         
         // 마지막 로그인 시간 업데이트
-        user.lastLoginAt = LocalDateTime.now()
-        userRepository.save(user)
+        val updatedUser = user.copy(lastLoginAt = LocalDateTime.now())
+        userRepository.save(updatedUser)
         
         val accessToken = jwtTokenProvider.createToken(user.email, "ROLE_USER")
         val refreshToken = jwtTokenProvider.createRefreshToken(user.email)
@@ -85,15 +89,19 @@ class AuthFactorService(
                     authType = request.biometricType,
                     authValue = "",
                     createdAt = LocalDateTime.now(),
-                    updatedAt = LocalDateTime.now()
+                    updatedAt = LocalDateTime.now(),
+                    isEnabled = false
                 )
             )
         
-        userAuth.authValue = request.publicKeyCredential
-        userAuth.updatedAt = LocalDateTime.now()
-        userAuth.isEnabled = true
+        // copy를 사용하여 새 인스턴스 생성 (불변 객체 패턴)
+        val updatedAuth = userAuth.copy(
+            authValue = request.publicKeyCredential,
+            updatedAt = LocalDateTime.now(),
+            isEnabled = true
+        )
         
-        userAuthenticationRepository.save(userAuth)
+        userAuthenticationRepository.save(updatedAuth)
         
         return BiometricSetupResponse(message = "생체인증이 성공적으로 설정되었습니다.")
     }

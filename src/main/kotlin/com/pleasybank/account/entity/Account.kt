@@ -13,30 +13,38 @@ data class Account(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    val user: User,
-    
-    @Column(nullable = false, unique = true, name = "account_number")
+    @Column(nullable = false, unique = true)
     val accountNumber: String,
     
-    @Column(nullable = false, name = "account_name")
+    @Column(nullable = false)
     val accountName: String,
+    
+    @Column(nullable = false)
+    val accountType: String, // CHECKING, SAVINGS, CREDIT
     
     @Column(nullable = false, precision = 19, scale = 4)
     var balance: BigDecimal = BigDecimal.ZERO,
     
-    @Column(nullable = false, name = "account_type")
-    val accountType: String,
+    @Column(nullable = false)
+    val currency: String = "KRW",
     
-    @Column(nullable = false, name = "is_active")
-    var isActive: Boolean = true,
+    @Column(nullable = false)
+    val status: String = "ACTIVE", // ACTIVE, INACTIVE, BLOCKED, CLOSED
     
-    @Column(nullable = false, name = "created_at")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    val user: User,
+    
+    @Column(nullable = false)
+    val interestRate: BigDecimal = BigDecimal.ZERO,
+    
+    @Column(nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     
-    @Column(nullable = false, name = "updated_at")
+    @Column(nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now(),
+    
+    var lastActivityDate: LocalDateTime? = null,
     
     @OneToMany(mappedBy = "sourceAccount", cascade = [CascadeType.ALL])
     val outgoingTransactions: MutableList<Transaction> = mutableListOf(),

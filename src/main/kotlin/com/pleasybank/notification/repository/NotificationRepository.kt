@@ -21,4 +21,11 @@ interface NotificationRepository : JpaRepository<Notification, Long> {
         @Param("date") date: LocalDateTime,
         pageable: Pageable
     ): Page<Notification>
+    
+    // 사용자별 알림 ID 목록으로 조회
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId AND n.id IN :notificationIds")
+    fun findByUserIdAndIdIn(
+        @Param("userId") userId: Long,
+        @Param("notificationIds") notificationIds: List<Long>
+    ): List<Notification>
 } 

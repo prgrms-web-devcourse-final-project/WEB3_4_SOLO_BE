@@ -3,6 +3,7 @@ package com.pleasybank.security.jwt
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.core.userdetails.UserDetails
@@ -12,6 +13,8 @@ import org.springframework.web.filter.OncePerRequestFilter
 class JwtAuthenticationFilter(
     private val jwtTokenProvider: JwtTokenProvider
 ) : OncePerRequestFilter() {
+    
+    private val logger = LoggerFactory.getLogger(JwtAuthenticationFilter::class.java)
     
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -48,10 +51,12 @@ class JwtAuthenticationFilter(
     }
     
     private fun createUserDetails(userId: String): UserDetails {
-        // 실제 애플리케이션에서는 userId로 사용자 정보를 조회하여 UserDetails 객체를 생성해야 합니다.
-        // 여기서는 간단한 예시로 userId만 담은 UserDetails 객체를 생성합니다.
+        // userId는 토큰에서 추출한 사용자 ID입니다.
+        // AccountController에서는 username을 userId로 변환하여 사용하고 있으므로
+        // 일관성을 유지하기 위해 username에 userId를 설정합니다.
         return object : UserDetails {
-            override fun getAuthorities() = listOf(org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))
+            override fun getAuthorities() = 
+                listOf(org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))
             override fun getPassword() = null
             override fun getUsername() = userId
             override fun isAccountNonExpired() = true
