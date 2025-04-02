@@ -23,10 +23,10 @@ spring:
           kakao:
             client-id: dfbb49ef3546d43dae6f375358b0008e
             client-secret: tCi6WRWfWenBMrfbTaTH502WjYkHOsDI
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            redirect-uri: http://localhost:3000/auth/callback/kakao
             authorization-grant-type: authorization_code
-            client-name: Kakao
-            client-authentication-method: POST
+            client-name: kakao
+            client-authentication-method: client_secret_post
             scope:
               - profile_nickname
               - profile_image
@@ -81,6 +81,10 @@ app:
       - http://localhost:8080/auth/token-display
   cors:
     allowedOrigins: http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080
+  jwt:
+    secret: pleasy987654321pleasy987654321pleasy987654321pleasy987654321
+    expirationMs: 86400000
+    refreshExpirationMs: 2592000000
 
 # 금융결제원 오픈API 설정
 openbanking:
