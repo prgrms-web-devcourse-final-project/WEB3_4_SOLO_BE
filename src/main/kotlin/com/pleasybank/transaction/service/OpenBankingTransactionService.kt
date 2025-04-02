@@ -33,7 +33,7 @@ class OpenBankingTransactionService(
     @Transactional
     fun transferMoney(userId: Long, request: TransactionCreateRequest): TransactionDetailResponse {
         // 사용자 정보 확인
-        val user = userRepository.findById(userId)
+        userRepository.findById(userId)
             .orElseThrow { ResourceNotFoundException("사용자를 찾을 수 없습니다: $userId") }
         
         // 오픈뱅킹 토큰 조회
@@ -109,9 +109,9 @@ class OpenBankingTransactionService(
         val incomeTrans = transactionList.res_list.filter { it.inout_type == "I" }
         val outgoingTrans = transactionList.res_list.filter { it.inout_type == "O" }
         
-        // 총 금액 계산
-        val totalIncome = incomeTrans.sumOf { BigDecimal(it.tran_amt) }
-        val totalOutgoing = outgoingTrans.sumOf { BigDecimal(it.tran_amt) }
+        // 총 금액 계산 - 명시적인 타입 변환 적용
+        val totalIncome = incomeTrans.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
+        val totalOutgoing = outgoingTrans.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
         
         // 카테고리별 그룹화 (간단한 구현)
         val categoryMap = outgoingTrans.groupBy {
@@ -124,9 +124,9 @@ class OpenBankingTransactionService(
             }
         }
         
-        // 카테고리별 금액 계산
+        // 카테고리별 금액 계산 - 명시적인 타입 변환 적용
         val categoryAmounts = categoryMap.mapValues { (_, transactions) ->
-            transactions.sumOf { BigDecimal(it.tran_amt) }
+            transactions.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
         }
         
         return mapOf(
@@ -174,18 +174,18 @@ class OpenBankingTransactionService(
         // 일별 그룹화
         val dailyTransactions = transactionList.res_list.groupBy { it.tran_date }
         
-        // 일별 수입/지출 계산
-        val dailySummary = dailyTransactions.mapValues { (date, transactions) ->
+        // 일별 수입/지출 계산 - 명시적인 타입 변환 적용
+        val dailySummary = dailyTransactions.mapValues { (_, transactions) ->
             val incomes = transactions.filter { it.inout_type == "I" }
             val outgoings = transactions.filter { it.inout_type == "O" }
             
             mapOf(
-                "income" to incomes.sumOf { BigDecimal(it.tran_amt) },
-                "outgoing" to outgoings.sumOf { BigDecimal(it.tran_amt) }
+                "income" to incomes.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) },
+                "outgoing" to outgoings.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
             )
         }
         
-        // 카테고리별 지출 합계
+        // 카테고리별 지출 합계 - 명시적인 타입 변환 적용
         val categoryOutgoings = transactionList.res_list
             .filter { it.inout_type == "O" }
             .groupBy {
@@ -198,17 +198,17 @@ class OpenBankingTransactionService(
                 }
             }
             .mapValues { (_, transactions) ->
-                transactions.sumOf { BigDecimal(it.tran_amt) }
+                transactions.fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
             }
         
-        // 총계 계산
+        // 총계 계산 - 명시적인 타입 변환 적용
         val totalIncome = transactionList.res_list
             .filter { it.inout_type == "I" }
-            .sumOf { BigDecimal(it.tran_amt) }
+            .fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
             
         val totalOutgoing = transactionList.res_list
             .filter { it.inout_type == "O" }
-            .sumOf { BigDecimal(it.tran_amt) }
+            .fold(BigDecimal.ZERO) { acc, trans -> acc.add(BigDecimal(trans.tran_amt)) }
         
         return mapOf(
             "year" to year,
