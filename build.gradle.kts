@@ -31,6 +31,11 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     
+    // JAXB API - DatatypeConverter를 위한 의존성
+    implementation("javax.xml.bind:jaxb-api:2.3.1")
+    implementation("com.sun.xml.bind:jaxb-core:4.0.1")
+    implementation("com.sun.xml.bind:jaxb-impl:4.0.1")
+    
     // JWT 
     implementation("io.jsonwebtoken:jjwt-api:0.11.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
