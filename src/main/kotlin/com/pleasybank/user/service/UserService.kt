@@ -8,6 +8,7 @@ import com.pleasybank.user.dto.UserProfileUpdateResponse
 import com.pleasybank.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 @Service
@@ -25,9 +26,9 @@ class UserService(
         val bioAuthEnabled = userAuthenticationRepository.existsByUserIdAndAuthType(userId, "FINGERPRINT") || 
                 userAuthenticationRepository.existsByUserIdAndAuthType(userId, "FACE")
         
-        // 계좌 수와 총 잔액 계산
-        val accountCount = user.accounts.size
-        val totalBalance = user.accounts.sumOf { it.balance }
+        // 계좌 정보는 오픈뱅킹 API에서 조회하므로 여기서는 기본값 사용
+        val accountCount = 0
+        val totalBalance = BigDecimal.ZERO
         
         return UserProfileResponse(
             id = user.id!!,
