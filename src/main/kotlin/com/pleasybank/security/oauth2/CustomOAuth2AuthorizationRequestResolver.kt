@@ -28,6 +28,12 @@ class CustomOAuth2AuthorizationRequestResolver(
     override fun resolve(request: HttpServletRequest): OAuth2AuthorizationRequest? {
         logger.info("OAuth2 인증 요청 처리 시작: ${request.requestURI}")
         
+        // 오픈뱅킹 API 관련 경로는 OAuth2 인증 처리에서 제외
+        if (request.requestURI.startsWith("/api/openbanking/")) {
+            logger.info("오픈뱅킹 API 경로 감지됨 - OAuth2 인증 요청 처리 건너뜀: ${request.requestURI}")
+            return null
+        }
+        
         // 카카오 인증 코드 콜백 URL인 경우 처리 중단
         if (request.requestURI.startsWith("/login/oauth2/code/")) {
             logger.info("OAuth2 콜백 URL 감지됨 - 인증 요청 생성 건너뜀")
@@ -40,6 +46,12 @@ class CustomOAuth2AuthorizationRequestResolver(
 
     override fun resolve(request: HttpServletRequest, clientRegistrationId: String): OAuth2AuthorizationRequest? {
         logger.info("OAuth2 인증 요청 처리 시작 (clientRegistrationId: $clientRegistrationId): ${request.requestURI}")
+        
+        // 오픈뱅킹 API 관련 경로는 OAuth2 인증 처리에서 제외
+        if (request.requestURI.startsWith("/api/openbanking/")) {
+            logger.info("오픈뱅킹 API 경로 감지됨 - OAuth2 인증 요청 처리 건너뜀: ${request.requestURI}")
+            return null
+        }
         
         // 카카오 인증 코드 콜백 URL인 경우 처리 중단
         if (request.requestURI.startsWith("/login/oauth2/code/")) {

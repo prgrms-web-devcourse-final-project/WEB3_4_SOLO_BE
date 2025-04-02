@@ -7,11 +7,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest
 import org.springframework.stereotype.Component
-import org.springframework.util.SerializationUtils
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.ObjectInputStream
-import java.io.ObjectOutputStream
 import java.util.*
 
 @Component
@@ -22,8 +17,7 @@ class HttpCookieOAuth2AuthorizationRequestRepository : AuthorizationRequestRepos
     companion object {
         const val OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request"
         const val REDIRECT_URI_PARAM_COOKIE_NAME = "redirect_uri"
-        const val OAUTH2_AUTHORIZATION_REQUEST_SESSION_KEY = "SPRING_SECURITY_OAUTH2_AUTHORIZATION_REQUEST"
-        const val REDIRECT_URI_PARAM_SESSION_KEY = "redirect_uri_session"
+        const val OAUTH2_PROVIDER_TYPE_COOKIE_NAME = "oauth2_provider"
         private const val cookieExpireSeconds = 1800
     }
 
@@ -31,24 +25,35 @@ class HttpCookieOAuth2AuthorizationRequestRepository : AuthorizationRequestRepos
         logger.info("인증 요청 로드 시도 (세션 ID: ${request.session.id})")
         
         try {
-            // 세션에서 먼저 확인
-            val sessionRequest = request.session.getAttribute(OAUTH2_AUTHORIZATION_REQUEST_SESSION_KEY) as? OAuth2AuthorizationRequest
-            if (sessionRequest != null) {
-                logger.info("세션에서 인증 요청을 찾았습니다")
-                return sessionRequest
-            }
-            
-            // 쿠키에서 확인
+            // 쿠키에서 인증 요청 불러오기
             val cookie = CookieUtils.getCookie(request, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
-            return cookie?.let {
-                val value = it.value
+            if (cookie != null) {
+                val value = cookie.value
                 logger.info("쿠키에서 인증 요청을 찾았습니다 (길이: ${value.length})")
-                try {
-                    deserialize(Base64.getUrlDecoder().decode(value))
+                
+                // 세션에 저장된 요청이 있으면 반환
+                val sessionAuthRequest = request.getSession(false)?.getAttribute(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME) as? OAuth2AuthorizationRequest
+                if (sessionAuthRequest != null) {
+                    logger.info("세션에서 인증 요청을 찾았습니다")
+                    return sessionAuthRequest
+                }
+                
+                // 세션에 없으면 쿠키에서 디코딩하여 반환
+                return try {
+                    val decoded = Base64.getUrlDecoder().decode(value)
+                    val authRequest = deserialize(decoded)
+                    
+                    // 세션에도 저장해둠
+                    request.session.setAttribute(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME, authRequest)
+                    
+                    authRequest
                 } catch (e: Exception) {
-                    logger.error("쿠키 역직렬화 실패: ${e.message}")
+                    logger.error("쿠키 역직렬화 실패: ${e.message}", e)
                     null
                 }
+            } else {
+                logger.warn("쿠키에서 인증 요청을 찾을 수 없음")
+                return null
             }
         } catch (e: Exception) {
             logger.error("인증 요청 로드 중 예외 발생: ${e.message}", e)
@@ -65,46 +70,46 @@ class HttpCookieOAuth2AuthorizationRequestRepository : AuthorizationRequestRepos
             logger.info("인증 요청이 null이므로 쿠키 삭제")
             CookieUtils.deleteCookie(request, response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
             CookieUtils.deleteCookie(request, response, REDIRECT_URI_PARAM_COOKIE_NAME)
+            CookieUtils.deleteCookie(request, response, OAUTH2_PROVIDER_TYPE_COOKIE_NAME)
+            
+            // 세션에서도 삭제
+            request.getSession(false)?.removeAttribute(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
             return
         }
 
         try {
             // 세션에 저장
-            request.session.setAttribute(OAUTH2_AUTHORIZATION_REQUEST_SESSION_KEY, authorizationRequest)
+            request.session.setAttribute(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME, authorizationRequest)
             logger.info("세션에 인증 요청 저장 완료 (세션ID: ${request.session.id})")
             
-            // 쿠키에 저장
-            val serializedAuth = Base64.getUrlEncoder().encodeToString(serialize(authorizationRequest))
+            // 쿠키에 저장 (Base64로 직렬화)
+            val serializedAuth = serialize(authorizationRequest)
             logger.info("인증 요청을 쿠키에 저장 (길이: ${serializedAuth.length})")
             
+            // 쿠키 추가
             CookieUtils.addCookie(
                 response,
                 OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME,
                 serializedAuth,
                 cookieExpireSeconds,
-                "/",
-                null,
-                false,
-                true,
-                "Lax"
+                secure = false,  // HTTP 테스트 환경에서는 false
+                httpOnly = true,
+                sameSite = "Lax"  // SameSite 설정
             )
 
+            // 리다이렉트 URI가 있으면 저장
             val redirectUriAfterLogin = request.getParameter("redirect_uri")
-            if (redirectUriAfterLogin != null && redirectUriAfterLogin.isNotBlank()) {
+            if (!redirectUriAfterLogin.isNullOrBlank()) {
                 logger.info("리다이렉트 URI 쿠키에 저장: $redirectUriAfterLogin")
-                // 세션에도 저장
-                request.session.setAttribute(REDIRECT_URI_PARAM_SESSION_KEY, redirectUriAfterLogin)
                 
                 CookieUtils.addCookie(
                     response,
                     REDIRECT_URI_PARAM_COOKIE_NAME,
                     redirectUriAfterLogin,
                     cookieExpireSeconds,
-                    "/",
-                    null,
-                    false,
-                    true,
-                    "Lax"
+                    secure = false,
+                    httpOnly = true,
+                    sameSite = "Lax"
                 )
             }
         } catch (e: Exception) {
@@ -117,46 +122,28 @@ class HttpCookieOAuth2AuthorizationRequestRepository : AuthorizationRequestRepos
         response: HttpServletResponse
     ): OAuth2AuthorizationRequest? {
         logger.info("인증 요청 제거 시도 (세션 ID: ${request.session.id})")
-        val authRequest = loadAuthorizationRequest(request)
-        
-        try {
-            // 세션에서 제거
-            request.session.removeAttribute(OAUTH2_AUTHORIZATION_REQUEST_SESSION_KEY)
-            request.session.removeAttribute(REDIRECT_URI_PARAM_SESSION_KEY)
-            
-            // 쿠키에서 제거
-            CookieUtils.deleteCookie(request, response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
-            CookieUtils.deleteCookie(request, response, REDIRECT_URI_PARAM_COOKIE_NAME)
-            
-            logger.info("인증 요청 제거 완료")
-        } catch (e: Exception) {
-            logger.error("인증 요청 제거 중 예외 발생: ${e.message}", e)
+        return this.loadAuthorizationRequest(request).also { 
+            removeAuthorizationRequestCookies(request, response)
         }
+    }
+    
+    fun removeAuthorizationRequestCookies(request: HttpServletRequest, response: HttpServletResponse) {
+        logger.info("인증 요청 쿠키 제거")
         
-        return authRequest
+        // 세션에서 제거
+        request.getSession(false)?.removeAttribute(OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
+        
+        // 쿠키에서 제거
+        CookieUtils.deleteCookie(request, response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
+        CookieUtils.deleteCookie(request, response, REDIRECT_URI_PARAM_COOKIE_NAME)
+        CookieUtils.deleteCookie(request, response, OAUTH2_PROVIDER_TYPE_COOKIE_NAME)
     }
 
-    private fun serialize(obj: Any): ByteArray {
-        try {
-            val byteArrayOutputStream = ByteArrayOutputStream()
-            val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
-            objectOutputStream.writeObject(obj)
-            objectOutputStream.flush()
-            return byteArrayOutputStream.toByteArray()
-        } catch (e: Exception) {
-            logger.error("객체 직렬화 실패: ${e.message}", e)
-            throw e
-        }
+    private fun serialize(obj: OAuth2AuthorizationRequest): String {
+        return Base64.getUrlEncoder().encodeToString(org.springframework.util.SerializationUtils.serialize(obj))
     }
 
     private fun deserialize(bytes: ByteArray): OAuth2AuthorizationRequest? {
-        return try {
-            val byteArrayInputStream = ByteArrayInputStream(bytes)
-            val objectInputStream = ObjectInputStream(byteArrayInputStream)
-            objectInputStream.readObject() as OAuth2AuthorizationRequest
-        } catch (e: Exception) {
-            logger.error("인증 요청 역직렬화 실패: ${e.message}", e)
-            null
-        }
+        return org.springframework.util.SerializationUtils.deserialize(bytes) as? OAuth2AuthorizationRequest
     }
 } 

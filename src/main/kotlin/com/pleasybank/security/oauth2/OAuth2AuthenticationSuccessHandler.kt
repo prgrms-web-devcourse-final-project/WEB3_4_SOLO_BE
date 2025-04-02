@@ -93,7 +93,7 @@ class OAuth2AuthenticationSuccessHandler(
             logger.info("최종 리다이렉트 URL: $redirectUrl")
             
             // 인증 요청 정보 삭제
-            httpCookieOAuth2AuthorizationRequestRepository.removeAuthorizationRequest(request, response)
+            httpCookieOAuth2AuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response)
             
             // 기존 인증 요청 정보 제거하기
             super.clearAuthenticationAttributes(request)
@@ -114,24 +114,17 @@ class OAuth2AuthenticationSuccessHandler(
         response: HttpServletResponse,
         authentication: Authentication
     ): String {
-        // 세션에서 먼저 리다이렉트 URI 확인
-        val sessionRedirectUri = request.session.getAttribute(
-            HttpCookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_PARAM_SESSION_KEY
-        ) as? String
-        
-        // 세션에 없으면 쿠키에서 확인
+        // 쿠키에서 리다이렉트 URI 확인
         val cookieRedirectUri = CookieUtils.getCookie(
             request,
             HttpCookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_PARAM_COOKIE_NAME
         )?.value
         
-        val redirectUri = sessionRedirectUri ?: cookieRedirectUri
+        logger.info("리다이렉트 URI (쿠키): $cookieRedirectUri")
         
-        logger.info("리다이렉트 URI (세션/쿠키): $redirectUri")
-        
-        if (redirectUri != null && isAuthorizedRedirectUri(redirectUri)) {
-            logger.info("유효한 리다이렉트 URI 사용: $redirectUri")
-            return redirectUri
+        if (cookieRedirectUri != null && isAuthorizedRedirectUri(cookieRedirectUri)) {
+            logger.info("유효한 리다이렉트 URI 사용: $cookieRedirectUri")
+            return cookieRedirectUri
         }
         
         logger.info("기본 리다이렉트 URI 사용: $defaultRedirectUri")

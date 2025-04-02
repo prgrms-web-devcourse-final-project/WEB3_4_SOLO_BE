@@ -4,7 +4,6 @@ import jakarta.servlet.http.Cookie
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import java.util.*
 
 object CookieUtils {
     private val logger = LoggerFactory.getLogger(CookieUtils::class.java)
@@ -19,7 +18,7 @@ object CookieUtils {
             }
         }
         
-        logger.info("쿠키를 찾을 수 없음: $name")
+        logger.debug("쿠키를 찾을 수 없음: $name")
         return null
     }
     
@@ -34,6 +33,7 @@ object CookieUtils {
         httpOnly: Boolean = true,
         sameSite: String = "Lax"
     ) {
+        // 1. 일반 쿠키 설정
         val cookie = Cookie(name, value)
         cookie.path = path
         cookie.isHttpOnly = httpOnly
@@ -45,27 +45,28 @@ object CookieUtils {
         
         cookie.secure = secure
         
-        // SameSite 설정은 헤더에 직접 추가
+        // 2. 헤더를 통한 Set-Cookie 설정 (SameSite 속성을 위해)
         val cookieHeader = StringBuilder()
-            .append(cookie.name).append("=").append(cookie.value)
-            .append("; Max-Age=").append(cookie.maxAge)
-            .append("; Path=").append(cookie.path)
+            .append(name).append("=").append(value)
+            .append("; Max-Age=").append(maxAge)
+            .append("; Path=").append(path)
             
-        if (cookie.domain != null) {
-            cookieHeader.append("; Domain=").append(cookie.domain)
+        if (domain != null) {
+            cookieHeader.append("; Domain=").append(domain)
         }
         
-        if (cookie.secure) {
+        if (secure) {
             cookieHeader.append("; Secure")
         }
         
-        if (cookie.isHttpOnly) {
+        if (httpOnly) {
             cookieHeader.append("; HttpOnly")
         }
         
         cookieHeader.append("; SameSite=").append(sameSite)
         
         response.addHeader("Set-Cookie", cookieHeader.toString())
+        response.addCookie(cookie)
         
         logger.info("쿠키 추가: $name, 값 길이=${value.length}, maxAge=$maxAge, path=$path, sameSite=$sameSite")
     }
@@ -75,12 +76,13 @@ object CookieUtils {
         if (cookies != null) {
             for (cookie in cookies) {
                 if (cookie.name == name) {
+                    // 1. 일반 쿠키 삭제
                     cookie.value = ""
                     cookie.path = "/"
                     cookie.maxAge = 0
                     response.addCookie(cookie)
                     
-                    // SameSite=None 설정을 위한 추가 헤더
+                    // 2. 헤더를 통한 Set-Cookie 설정 (SameSite=Lax)
                     response.addHeader("Set-Cookie", 
                         "${cookie.name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
                     
@@ -89,6 +91,9 @@ object CookieUtils {
                 }
             }
         }
-        logger.warn("삭제할 쿠키를 찾을 수 없음: $name")
+        
+        // 쿠키가 없어도 헤더를 통해 삭제 요청
+        response.addHeader("Set-Cookie", "$name=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+        logger.debug("삭제할 쿠키를 찾을 수 없음: $name")
     }
 } 

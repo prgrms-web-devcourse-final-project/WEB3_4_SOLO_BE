@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
@@ -66,18 +68,86 @@ class OpenBankingController(
     )
     fun authRedirect(
         @RequestParam("oauthUserId") oauthUserId: String,
-        @RequestParam("provider", required = false, defaultValue = "KAKAO") provider: String
+        @RequestParam("provider", required = false, defaultValue = "KAKAO") provider: String,
+        request: HttpServletRequest,
+        response: HttpServletResponse
     ): RedirectView {
-        logger.info("오픈뱅킹 사용자 인증 페이지 리다이렉트: provider=$provider, oauthUserId=$oauthUserId")
+        logger.info("오픈뱅킹 사용자 인증 페이지 리다이렉트: provider=$provider, oauthUserId=$oauthUserId, sessionId=${request.session.id}")
+        
+        try {
+            // 세션에 사용자 정보 저장 (콜백에서 사용)
+            request.session.setAttribute("OPENBANKING_AUTH_PROVIDER", provider)
+            request.session.setAttribute("OPENBANKING_AUTH_OAUTH_USER_ID", oauthUserId)
+            
+            // 사용자 ID와 제공자 정보를 상태 파라미터에 인코딩하여 콜백에서 사용
+            val stateJson = """{"provider":"$provider","oauthUserId":"$oauthUserId","sessionId":"${request.session.id}"}"""
+            val state = URLEncoder.encode(stateJson, StandardCharsets.UTF_8.toString())
+            
+            val encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8.toString())
+            val authPageUrl = "$authUrl?response_type=code&client_id=$clientId&redirect_uri=$encodedRedirectUri&scope=login inquiry transfer&state=$state&auth_type=0"
+            
+            logger.info("오픈뱅킹 인증 URL 생성: $authPageUrl")
+            return RedirectView(authPageUrl)
+        } catch (e: Exception) {
+            logger.error("오픈뱅킹 인증 URL 생성 중 오류 발생", e)
+            return RedirectView("/auth/token-display?error=open_banking_auth_error&message=${URLEncoder.encode(e.message ?: "인증 URL 생성 중 오류가 발생했습니다", StandardCharsets.UTF_8.toString())}")
+        }
+    }
+    
+    // 상태 확인용 엔드포인트 추가
+    @GetMapping("/auth/status")
+    fun getAuthStatus(request: HttpServletRequest): ResponseEntity<Map<String, Any?>> {
+        val sessionId = request.session.id
+        val provider = request.session.getAttribute("OPENBANKING_AUTH_PROVIDER") as? String
+        val oauthUserId = request.session.getAttribute("OPENBANKING_AUTH_OAUTH_USER_ID") as? String
+        
+        return ResponseEntity.ok(mapOf(
+            "sessionId" to sessionId,
+            "provider" to provider,
+            "oauthUserId" to oauthUserId,
+            "sessionAttributes" to request.session.attributeNames.toList().associateWith { request.session.getAttribute(it) }
+        ))
+    }
+    
+    /**
+     * 오픈뱅킹 사용자 인증 URL 직접 반환 (프론트엔드에서 새 창으로 열 수 있음)
+     */
+    @GetMapping("/auth/url")
+    @Operation(
+        summary = "오픈뱅킹 사용자 인증 URL 조회", 
+        description = "오픈뱅킹 사용자 인증 URL을 반환합니다. 프론트엔드에서 새 창으로 열 수 있습니다.",
+        parameters = [
+            Parameter(name = "provider", description = "OAuth 제공자 (기본값: KAKAO)", required = false),
+            Parameter(name = "oauthUserId", description = "OAuth 사용자 ID", required = true)
+        ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "URL 반환 성공",
+                content = [Content(schema = Schema(implementation = Map::class))]
+            )
+        ]
+    )
+    fun getAuthUrl(
+        @RequestParam("oauthUserId") oauthUserId: String,
+        @RequestParam("provider", required = false, defaultValue = "KAKAO") provider: String,
+        request: HttpServletRequest
+    ): ResponseEntity<Map<String, String>> {
+        logger.info("오픈뱅킹 사용자 인증 URL 요청: provider=$provider, oauthUserId=$oauthUserId, sessionId=${request.session.id}")
+        
+        // 세션에 사용자 정보 저장 (콜백에서 사용)
+        request.session.setAttribute("OPENBANKING_AUTH_PROVIDER", provider)
+        request.session.setAttribute("OPENBANKING_AUTH_OAUTH_USER_ID", oauthUserId)
         
         // 사용자 ID와 제공자 정보를 상태 파라미터에 인코딩하여 콜백에서 사용
-        val stateJson = """{"provider":"$provider","oauthUserId":"$oauthUserId"}"""
+        val stateJson = """{"provider":"$provider","oauthUserId":"$oauthUserId","sessionId":"${request.session.id}"}"""
         val state = URLEncoder.encode(stateJson, StandardCharsets.UTF_8.toString())
         
         val encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8.toString())
         val authPageUrl = "$authUrl?response_type=code&client_id=$clientId&redirect_uri=$encodedRedirectUri&scope=login inquiry transfer&state=$state&auth_type=0"
         
-        return RedirectView(authPageUrl)
+        logger.info("오픈뱅킹 인증 URL 생성: $authPageUrl")
+        return ResponseEntity.ok(mapOf("authUrl" to authPageUrl))
     }
     
     /**
@@ -102,22 +172,43 @@ class OpenBankingController(
     @Transactional
     fun callback(
         @RequestParam code: String, 
-        @RequestParam state: String
+        @RequestParam state: String,
+        request: HttpServletRequest
     ): ResponseEntity<Map<String, Any>> {
-        logger.info("오픈뱅킹 콜백 수신: code=${code.substring(0, 10)}..., state=$state")
+        logger.info("오픈뱅킹 콜백 수신: code=${code.take(10)}..., state=$state, sessionId=${request.session.id}")
         
         try {
-            // state 파라미터에서 제공자와 사용자 ID 추출
-            val decodedState = URLEncoder.encode(state, StandardCharsets.UTF_8.toString())
+            // 세션에서 정보를 우선 확인
+            var providerName = request.session.getAttribute("OPENBANKING_AUTH_PROVIDER") as? String
+            var oauthUserId = request.session.getAttribute("OPENBANKING_AUTH_OAUTH_USER_ID") as? String
             
-            // 간단한 방식으로 JSON 파싱 (실제로는 JSON 라이브러리 사용 권장)
-            val stateString = decodedState.replace("%7B", "{").replace("%7D", "}")
-                .replace("%22", "\"").replace("%3A", ":").replace("%2C", ",")
-            
-            val providerName = stateString.substringAfter("\"provider\":\"").substringBefore("\"")
-            val oauthUserId = stateString.substringAfter("\"oauthUserId\":\"").substringBefore("\"")
-            
-            logger.info("추출된 정보: provider=$providerName, oauthUserId=$oauthUserId")
+            // 세션 정보가 없으면 state 파라미터에서 추출
+            if (providerName == null || oauthUserId == null) {
+                logger.warn("세션에서 인증 정보를 찾을 수 없어 state 파라미터에서 추출을 시도합니다")
+                
+                try {
+                    // URL 디코딩 수행
+                    val decodedState = java.net.URLDecoder.decode(state, StandardCharsets.UTF_8.toString())
+                    
+                    // 정규 표현식으로 JSON 값 추출
+                    val providerRegex = "\"provider\":\"([^\"]+)\"".toRegex()
+                    val userIdRegex = "\"oauthUserId\":\"([^\"]+)\"".toRegex()
+                    
+                    providerName = providerRegex.find(decodedState)?.groupValues?.get(1)
+                    oauthUserId = userIdRegex.find(decodedState)?.groupValues?.get(1)
+                    
+                    if (providerName == null || oauthUserId == null) {
+                        throw IllegalStateException("state 파라미터에서 제공자 또는 사용자 ID를 추출할 수 없습니다")
+                    }
+                    
+                    logger.info("state 파라미터에서 추출된 정보: provider=$providerName, oauthUserId=$oauthUserId")
+                } catch (e: Exception) {
+                    logger.error("state 파라미터 파싱 오류", e)
+                    throw IllegalStateException("인증 상태 정보를 처리할 수 없습니다: ${e.message}")
+                }
+            } else {
+                logger.info("세션에서 추출된 정보: provider=$providerName, oauthUserId=$oauthUserId")
+            }
             
             // 제공자 ID 조회
             val provider = oAuthProviderRepository.findByProviderName(providerName)
@@ -130,6 +221,10 @@ class OpenBankingController(
             // 인증 코드로 토큰 발급 및 저장
             val tokenResponse = openBankingTokenService.processAuthorizationCode(code, userOAuth)
             
+            // 세션 정보 삭제
+            request.session.removeAttribute("OPENBANKING_AUTH_PROVIDER")
+            request.session.removeAttribute("OPENBANKING_AUTH_OAUTH_USER_ID")
+            
             return ResponseEntity.ok(mapOf(
                 "success" to true,
                 "message" to "오픈뱅킹 연동이 완료되었습니다.",
@@ -140,7 +235,8 @@ class OpenBankingController(
             logger.error("오픈뱅킹 콜백 처리 중 오류 발생", e)
             return ResponseEntity.badRequest().body(mapOf(
                 "success" to false,
-                "message" to "오픈뱅킹 연동 중 오류가 발생했습니다: ${e.message}"
+                "message" to "오픈뱅킹 연동 중 오류가 발생했습니다: ${e.message}",
+                "error" to e.javaClass.simpleName
             ))
         }
     }

@@ -18,6 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
+import org.slf4j.LoggerFactory
 
 @Configuration
 @EnableWebSecurity
@@ -29,6 +30,8 @@ class SecurityConfig(
     private val httpCookieOAuth2AuthorizationRequestRepository: HttpCookieOAuth2AuthorizationRequestRepository,
     private val customOAuth2AuthorizationRequestResolver: CustomOAuth2AuthorizationRequestResolver
 ) {
+    
+    private val logger = LoggerFactory.getLogger(SecurityConfig::class.java)
     
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
@@ -66,6 +69,7 @@ class SecurityConfig(
                     
                     // 오픈뱅킹 API 인증 관련 경로
                     .requestMatchers("/api/openbanking/auth").permitAll()
+                    .requestMatchers("/api/openbanking/auth/**").permitAll()
                     .requestMatchers("/api/openbanking/callback").permitAll()
                     
                     // H2 콘솔
@@ -93,9 +97,10 @@ class SecurityConfig(
                     .anyRequest().authenticated()
             }
             .sessionManagement { 
-                it.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 it.invalidSessionUrl("/auth/token-display?error=invalid_session")
-                it.maximumSessions(1)
+                it.maximumSessions(3)
+                    .expiredUrl("/auth/token-display?error=session_expired")
             }
             .oauth2Login { oauth2 ->
                 oauth2

@@ -30,14 +30,20 @@ class OAuth2AuthenticationFailureHandler(
         try {
             logger.error("OAuth2 인증 실패: ${exception.message}", exception)
             
+            // 인증 요청 쿠키 삭제
+            httpCookieOAuth2AuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response)
+            
             // 에러 정보를 담아 토큰 표시 페이지로 리다이렉트
-            val targetUrl = "/auth/token-display"
-            val redirectUrl = UriComponentsBuilder.fromUriString(targetUrl)
+            val redirectUrl = UriComponentsBuilder.fromUriString("/auth/token-display")
                 .queryParam("error", exception.message ?: "인증 과정에서 오류가 발생했습니다")
                 .build().toUriString()
             
             logger.info("인증 실패 리다이렉트: $redirectUrl")
             
+            // 세션 무효화
+            request.getSession(false)?.invalidate()
+            
+            // 리다이렉트
             redirectStrategy.sendRedirect(request, response, redirectUrl)
         } catch (e: Exception) {
             logger.error("인증 실패 처리 중 예외 발생", e)
