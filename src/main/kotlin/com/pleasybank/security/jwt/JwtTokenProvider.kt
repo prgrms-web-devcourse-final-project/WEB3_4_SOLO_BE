@@ -13,9 +13,9 @@ import java.util.Date
 
 @Component
 class JwtTokenProvider(
-    @Value("\${app.auth.token-secret}") private val jwtSecret: String,
-    @Value("\${app.auth.token-expiration-ms}") private val jwtExpirationMs: Long,
-    @Value("\${app.auth.refresh-token-expiration-ms}") private val refreshTokenExpirationMs: Long
+    @Value("\${app.auth.tokenSecret}") private val jwtSecret: String,
+    @Value("\${app.auth.tokenExpirationMsec}") private val jwtExpirationMs: Long,
+    @Value("\${app.auth.refreshTokenExpirationMsec}") private val refreshTokenExpirationMs: Long
 ) {
 
     fun createToken(userId: String, role: String): String {
@@ -27,7 +27,7 @@ class JwtTokenProvider(
             .claim("role", role)
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(SignatureAlgorithm.HS512, jwtSecret)
+            .signWith(SignatureAlgorithm.HS384, jwtSecret)
             .compact()
     }
 
@@ -39,7 +39,7 @@ class JwtTokenProvider(
             .setSubject(userId)
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(SignatureAlgorithm.HS512, jwtSecret)
+            .signWith(SignatureAlgorithm.HS384, jwtSecret)
             .compact()
     }
 

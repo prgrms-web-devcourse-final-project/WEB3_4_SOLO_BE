@@ -3,10 +3,13 @@ package com.pleasybank.security.config
 import com.pleasybank.security.jwt.JwtAuthenticationFilter
 import com.pleasybank.security.jwt.JwtTokenProvider
 import com.pleasybank.security.oauth2.CustomOAuth2UserService
+import com.pleasybank.security.oauth2.HttpCookieOAuth2AuthorizationRequestRepository
 import com.pleasybank.security.oauth2.OAuth2AuthenticationSuccessHandler
 import com.pleasybank.security.oauth2.OAuth2AuthenticationFailureHandler
+import com.pleasybank.security.oauth2.CustomOAuth2AuthorizationRequestResolver
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -22,32 +25,82 @@ class SecurityConfig(
     private val jwtTokenProvider: JwtTokenProvider,
     private val customOAuth2UserService: CustomOAuth2UserService,
     private val oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler,
-    private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler
+    private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler,
+    private val httpCookieOAuth2AuthorizationRequestRepository: HttpCookieOAuth2AuthorizationRequestRepository,
+    private val customOAuth2AuthorizationRequestResolver: CustomOAuth2AuthorizationRequestResolver
 ) {
+    
+    @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val configuration = CorsConfiguration()
+        configuration.allowedOriginPatterns = listOf("*")
+        configuration.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        configuration.allowedHeaders = listOf("*")
+        configuration.allowCredentials = true
+        configuration.maxAge = 3600
+        
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/**", configuration)
+        return source
+    }
     
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth -> 
                 auth
-                    .requestMatchers("/api/auth/**").permitAll()
-                    .requestMatchers("/api/auth/oauth2/**").permitAll()
-                    .requestMatchers("/api/auth/reset-password-request", "/api/auth/reset-password").permitAll()
+                    // 인증 관련 경로
+                    .requestMatchers("/").permitAll()
+                    .requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/login/**").permitAll()
+                    .requestMatchers("/oauth2/**").permitAll()
+                    .requestMatchers("/auth/oauth2/**").permitAll()
+                    .requestMatchers("/login/oauth2/code/*").permitAll()
+                    .requestMatchers("/auth/reset-password-request", "/auth/reset-password").permitAll()
+                    .requestMatchers("/auth/biometric/setup").permitAll()
+                    .requestMatchers("/auth/token-display").permitAll()
+                    .requestMatchers("/test/**").permitAll()
+                    .requestMatchers("/api/test/**").permitAll()
+                    
+                    // H2 콘솔
                     .requestMatchers("/h2-console/**").permitAll()
-                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                    .requestMatchers("/api/system/health", "/api/system/version").permitAll()
+                    
+                    // Swagger UI와 API 문서
+                    .requestMatchers("/swagger-ui.html").permitAll()
+                    .requestMatchers("/swagger-ui/**").permitAll()
+                    .requestMatchers("/v3/api-docs/**").permitAll()
+                    .requestMatchers("/api-docs/**").permitAll()
+                    .requestMatchers("/api/swagger-ui.html").permitAll()
+                    .requestMatchers("/api/swagger-ui/**").permitAll()
+                    .requestMatchers("/api/v3/api-docs/**").permitAll()
+                    .requestMatchers("/api/api-docs/**").permitAll()
+                    .requestMatchers("/api-docs/swagger-config").permitAll()
+                    .requestMatchers("/v3/api-docs/swagger-config").permitAll()
+                    
+                    // 시스템 상태 체크
+                    .requestMatchers("/system/health", "/system/version", "/system/test").permitAll()
+                    
+                    // 특정 OPTIONS 요청 허용 (CORS preflight)
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    
+                    // 나머지 요청은 인증 필요
                     .anyRequest().authenticated()
+            }
+            .sessionManagement { 
+                it.sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                it.invalidSessionUrl("/auth/token-display?error=invalid_session")
+                it.maximumSessions(1)
             }
             .oauth2Login { oauth2 ->
                 oauth2
-                    .authorizationEndpoint { endpoint ->
-                        endpoint.baseUri("/api/auth/oauth2/authorize")
+                    .authorizationEndpoint { endpoint -> 
+                        endpoint.authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository)
+                        endpoint.baseUri("/oauth2/authorize")
                     }
-                    .redirectionEndpoint { endpoint ->
-                        endpoint.baseUri("/api/auth/oauth2/callback/*")
+                    .redirectionEndpoint {
+                        it.baseUri("/login/oauth2/code/*")
                     }
                     .userInfoEndpoint { endpoint ->
                         endpoint.userService(customOAuth2UserService)
@@ -64,18 +117,5 @@ class SecurityConfig(
             }
             
         return http.build()
-    }
-    
-    @Bean
-    fun corsConfigurationSource(): CorsConfigurationSource {
-        val configuration = CorsConfiguration()
-        configuration.allowedOrigins = listOf("http://localhost:3000") // 프론트엔드 서버 주소
-        configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        configuration.allowedHeaders = listOf("Authorization", "Content-Type")
-        configuration.allowCredentials = true
-        
-        val source = UrlBasedCorsConfigurationSource()
-        source.registerCorsConfiguration("/**", configuration)
-        return source
     }
 } 
