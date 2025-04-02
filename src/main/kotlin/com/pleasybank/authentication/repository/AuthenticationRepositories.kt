@@ -42,6 +42,21 @@ interface UserOAuthRepository : JpaRepository<UserOAuth, Long> {
         @Param("providerId") providerId: Long, 
         @Param("oauthUserId") oauthUserId: String
     ): Optional<UserOAuth>
+    
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.user.id = :userId AND uo.openBankingAccessToken IS NOT NULL")
+    fun findByUserIdWithOpenBankingToken(@Param("userId") userId: Long): Optional<UserOAuth>
+    
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.provider.providerName = :providerName AND uo.oauthUserId = :oauthUserId")
+    fun findByProviderNameAndOauthUserId(
+        @Param("providerName") providerName: String,
+        @Param("oauthUserId") oauthUserId: String
+    ): Optional<UserOAuth>
+    
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.openBankingUserSeqNo = :userSeqNo")
+    fun findByOpenBankingUserSeqNo(@Param("userSeqNo") userSeqNo: String): Optional<UserOAuth>
+    
+    @Query("SELECT uo FROM UserOAuth uo WHERE uo.openBankingTokenExpiresAt < :currentTime AND uo.openBankingRefreshToken IS NOT NULL")
+    fun findAllWithExpiredOpenBankingTokens(@Param("currentTime") currentTime: LocalDateTime): List<UserOAuth>
 }
 
 interface PasswordResetRepository : JpaRepository<PasswordReset, Long> {

@@ -2,6 +2,8 @@ package com.pleasybank.security.oauth2
 
 import com.pleasybank.security.jwt.JwtTokenProvider
 import com.pleasybank.util.CookieUtils
+import com.pleasybank.authentication.repository.OAuthProviderRepository
+import com.pleasybank.authentication.repository.UserOAuthRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.security.core.Authentication
@@ -12,11 +14,14 @@ import org.springframework.web.util.UriComponentsBuilder
 import java.net.URI
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class OAuth2AuthenticationSuccessHandler(
     private val jwtTokenProvider: JwtTokenProvider,
     private val httpCookieOAuth2AuthorizationRequestRepository: HttpCookieOAuth2AuthorizationRequestRepository,
+    private val oAuthProviderRepository: OAuthProviderRepository,
+    private val userOAuthRepository: UserOAuthRepository,
     @Value("\${app.oauth2.authorizedRedirectUris[0]}") private val defaultRedirectUri: String
 ) : SimpleUrlAuthenticationSuccessHandler() {
     
@@ -34,6 +39,7 @@ class OAuth2AuthenticationSuccessHandler(
         setDefaultTargetUrl("/auth/token-display")
     }
 
+    @Transactional
     override fun onAuthenticationSuccess(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -53,13 +59,37 @@ class OAuth2AuthenticationSuccessHandler(
             val accessToken = jwtTokenProvider.createToken(userId, "ROLE_USER")
             val refreshToken = jwtTokenProvider.createRefreshToken(userId)
             
-            // 토큰을 쿼리 파라미터로 추가
-            val targetUrl = "/auth/token-display"
-            val redirectUrl = UriComponentsBuilder.fromUriString(targetUrl)
+            // 토큰 정보 및 오픈뱅킹 연동 상태를 쿼리 파라미터로 추가
+            val targetUrl = determineTargetUrl(request, response, authentication)
+            var redirectUrlBuilder = UriComponentsBuilder.fromUriString(targetUrl)
                 .queryParam("token", accessToken)
                 .queryParam("refreshToken", refreshToken)
-                .build().toUriString()
-
+                
+            // 카카오 계정과 연결된 사용자 정보 조회
+            val kakaoProvider = oAuthProviderRepository.findByProviderName("KAKAO")
+                .orElseThrow { IllegalStateException("카카오 제공자를 찾을 수 없습니다") }
+                
+            val userOAuth = userOAuthRepository.findByProviderIdAndOauthUserId(kakaoProvider.id!!, userId)
+            
+            // 오픈뱅킹 연동 상태 확인 및 URL 구성
+            if (userOAuth.isPresent) {
+                val oauthInfo = userOAuth.get()
+                val hasOpenBanking = oauthInfo.isOpenBankingLinked
+                
+                // 오픈뱅킹 연동 상태 파라미터 추가
+                redirectUrlBuilder = redirectUrlBuilder.queryParam("openBankingLinked", hasOpenBanking)
+                
+                // 연동되지 않은 경우 오픈뱅킹 연동 필요 플래그 추가
+                if (!hasOpenBanking) {
+                    redirectUrlBuilder = redirectUrlBuilder.queryParam("requireOpenBankingAuth", true)
+                }
+            } else {
+                // 사용자 정보가 없는 경우 (이런 경우는 없어야 함)
+                logger.error("카카오 인증 성공했으나 사용자 정보를 찾을 수 없음: $userId")
+                redirectUrlBuilder = redirectUrlBuilder.queryParam("error", "사용자 정보를 찾을 수 없습니다")
+            }
+            
+            val redirectUrl = redirectUrlBuilder.build().toUriString()
             logger.info("최종 리다이렉트 URL: $redirectUrl")
             
             // 인증 요청 정보 삭제

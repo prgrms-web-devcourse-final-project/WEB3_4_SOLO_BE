@@ -64,6 +64,10 @@ class SecurityConfig(
                     .requestMatchers("/test/**").permitAll()
                     .requestMatchers("/api/test/**").permitAll()
                     
+                    // 오픈뱅킹 API 인증 관련 경로
+                    .requestMatchers("/api/openbanking/auth").permitAll()
+                    .requestMatchers("/api/openbanking/callback").permitAll()
+                    
                     // H2 콘솔
                     .requestMatchers("/h2-console/**").permitAll()
                     

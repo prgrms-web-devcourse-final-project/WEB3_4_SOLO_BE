@@ -1,12 +1,6 @@
 package com.pleasybank.user.entity
 
-import com.pleasybank.account.entity.Account
-import com.pleasybank.authentication.entity.PasswordReset
-import com.pleasybank.authentication.entity.UserAuthentication
-import com.pleasybank.authentication.entity.UserOAuth
-import com.pleasybank.notification.entity.Notification
 import jakarta.persistence.*
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
@@ -19,8 +13,8 @@ data class User(
     @Column(nullable = false, unique = true)
     val email: String,
     
-    @Column(nullable = false)
-    val password: String,
+    @Column(nullable = true)
+    val password: String? = null,
     
     @Column(nullable = false)
     val name: String,
@@ -46,8 +40,5 @@ data class User(
     @Column(nullable = false)
     val updatedAt: LocalDateTime = LocalDateTime.now(),
     
-    val lastLoginAt: LocalDateTime? = null,
-    
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL])
-    val accounts: MutableList<Account> = mutableListOf()
+    val lastLoginAt: LocalDateTime? = null
 ) 
