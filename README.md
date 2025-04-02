@@ -39,7 +39,7 @@ PleasyBank는 금융결제원 오픈뱅킹 API에 70-80% 의존하는 형태로 
 - **보안**: Spring Security, OAuth2, JWT
 - **데이터베이스**: H2(개발), PostgreSQL(운영)
 - **API 문서화**: Swagger/OpenAPI
-- **외부 연동**: 금융결제원 오픈뱅킹 API
+- **외부 연동**: 금융결제원 오픈뱅킹 API, 카카오개발자 API(로그인기능)
 
 ## 필수 설정
 
