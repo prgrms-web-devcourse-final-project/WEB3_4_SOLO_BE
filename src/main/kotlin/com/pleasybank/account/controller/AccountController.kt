@@ -1,149 +1,153 @@
 package com.pleasybank.account.controller
 
 import com.pleasybank.account.dto.*
-import com.pleasybank.account.service.AccountService
+import com.pleasybank.account.service.OpenBankingAccountService
+import com.pleasybank.security.CurrentUser
+import com.pleasybank.security.UserPrincipal
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
-import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping("/accounts")
-@Tag(name = "Account", description = "계좌 관리 API")
+@RequestMapping("/api/accounts")
+@Tag(name = "계좌 API", description = "계좌 관련 엔드포인트")
 class AccountController(
-    private val accountService: AccountService
+    private val openBankingAccountService: OpenBankingAccountService
 ) {
-
-    @PostMapping
-    @Operation(summary = "계좌 생성", description = "새로운 계좌를 생성합니다.")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "201", description = "계좌 생성 성공", 
-            content = [Content(mediaType = "application/json", 
-                schema = Schema(implementation = AccountDetailResponse::class))]),
-        ApiResponse(responseCode = "400", description = "잘못된 요청"),
-        ApiResponse(responseCode = "401", description = "인증 실패")
-    ])
-    fun createAccount(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @RequestBody request: AccountCreateRequest
-    ): ResponseEntity<AccountDetailResponse> {
-        val userId = userDetails.username.toLong()
-        val accountResponse = accountService.createAccount(userId, request)
-        return ResponseEntity.status(HttpStatus.CREATED).body(accountResponse)
-    }
-
+    
+    /**
+     * 사용자의 계좌 목록 조회
+     */
     @GetMapping
-    @Operation(summary = "계좌 목록 조회", description = "사용자의 모든 계좌 목록을 페이지네이션하여 조회합니다.")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "조회 성공",
-            content = [Content(mediaType = "application/json",
-                schema = Schema(implementation = AccountListResponse::class))]),
-        ApiResponse(responseCode = "401", description = "인증 실패")
-    ])
+    @Operation(
+        summary = "계좌 목록 조회",
+        description = "현재 로그인한 사용자의 계좌 목록을 조회합니다. 오픈뱅킹 연동이 필요합니다.",
+        security = [SecurityRequirement(name = "bearerAuth")],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "성공적으로 계좌 목록을 조회했습니다.",
+                content = [Content(schema = Schema(implementation = AccountListResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "오픈뱅킹 연동이 필요합니다."
+            )
+        ]
+    )
     fun getAccounts(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") page: Int,
-        @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") size: Int
+        @CurrentUser userPrincipal: UserPrincipal,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<AccountListResponse> {
-        val userId = userDetails.username.toLong()
-        val accountsResponse = accountService.getAccountsByUserId(userId, page, size)
-        return ResponseEntity.ok(accountsResponse)
+        val accountList = openBankingAccountService.getAccountsByUserId(userPrincipal.id, page, size)
+        return ResponseEntity.ok(accountList)
     }
-
-    @GetMapping("/{accountId}")
-    @Operation(summary = "계좌 상세 조회", description = "특정 계좌의 상세 정보를 조회합니다.")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "조회 성공",
-            content = [Content(mediaType = "application/json",
-                schema = Schema(implementation = AccountDetailResponse::class))]),
-        ApiResponse(responseCode = "401", description = "인증 실패"),
-        ApiResponse(responseCode = "403", description = "권한 없음"),
-        ApiResponse(responseCode = "404", description = "계좌를 찾을 수 없음")
-    ])
-    fun getAccountById(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @Parameter(description = "계좌 ID") @PathVariable accountId: Long
+    
+    /**
+     * 특정 계좌의 상세 정보 조회
+     */
+    @GetMapping("/{fintechUseNum}")
+    @Operation(
+        summary = "계좌 상세 정보 조회",
+        description = "특정 계좌의 상세 정보를 조회합니다. 오픈뱅킹 연동이 필요합니다.",
+        security = [SecurityRequirement(name = "bearerAuth")],
+        parameters = [
+            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true)
+        ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "성공적으로 계좌 정보를 조회했습니다.",
+                content = [Content(schema = Schema(implementation = AccountDetailResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "계좌를 찾을 수 없습니다."
+            )
+        ]
+    )
+    fun getAccountByFintechNum(
+        @CurrentUser userPrincipal: UserPrincipal,
+        @PathVariable fintechUseNum: String
     ): ResponseEntity<AccountDetailResponse> {
-        val userId = userDetails.username.toLong()
-        val accountResponse = accountService.getAccountById(accountId, userId)
-        return ResponseEntity.ok(accountResponse)
+        val account = openBankingAccountService.getAccountByFintechNum(userPrincipal.id, fintechUseNum)
+        return ResponseEntity.ok(account)
     }
-
-    @GetMapping("/{accountId}/balance")
-    @Operation(summary = "계좌 잔액 조회", description = "특정 계좌의 현재 잔액을 조회합니다.")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "조회 성공",
-            content = [Content(mediaType = "application/json",
-                schema = Schema(implementation = AccountBalanceResponse::class))]),
-        ApiResponse(responseCode = "401", description = "인증 실패"),
-        ApiResponse(responseCode = "403", description = "권한 없음"),
-        ApiResponse(responseCode = "404", description = "계좌를 찾을 수 없음")
-    ])
+    
+    /**
+     * 계좌 잔액 조회
+     */
+    @GetMapping("/{fintechUseNum}/balance")
+    @Operation(
+        summary = "계좌 잔액 조회",
+        description = "특정 계좌의 잔액 정보를 조회합니다. 오픈뱅킹 연동이 필요합니다.",
+        security = [SecurityRequirement(name = "bearerAuth")],
+        parameters = [
+            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true)
+        ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "성공적으로 잔액 정보를 조회했습니다.",
+                content = [Content(schema = Schema(implementation = AccountBalanceResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "계좌를 찾을 수 없습니다."
+            )
+        ]
+    )
     fun getAccountBalance(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @Parameter(description = "계좌 ID") @PathVariable accountId: Long
+        @CurrentUser userPrincipal: UserPrincipal,
+        @PathVariable fintechUseNum: String
     ): ResponseEntity<AccountBalanceResponse> {
-        val userId = userDetails.username.toLong()
-        val balanceResponse = accountService.getAccountBalance(accountId, userId)
+        val balanceResponse = openBankingAccountService.getAccountBalance(userPrincipal.id, fintechUseNum)
         return ResponseEntity.ok(balanceResponse)
     }
-
-    @PatchMapping("/{accountId}/status")
-    @Operation(summary = "계좌 상태 변경", description = "계좌의 상태를 변경합니다 (ACTIVE, INACTIVE, SUSPENDED, CLOSED).")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "상태 변경 성공",
-            content = [Content(mediaType = "application/json",
-                schema = Schema(implementation = AccountDetailResponse::class))]),
-        ApiResponse(responseCode = "400", description = "잘못된 상태 값"),
-        ApiResponse(responseCode = "401", description = "인증 실패"),
-        ApiResponse(responseCode = "403", description = "권한 없음"),
-        ApiResponse(responseCode = "404", description = "계좌를 찾을 수 없음")
-    ])
-    fun updateAccountStatus(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @Parameter(description = "계좌 ID") @PathVariable accountId: Long,
-        @Parameter(description = "변경할 상태 (ACTIVE, INACTIVE, SUSPENDED, CLOSED)") @RequestParam status: String
-    ): ResponseEntity<AccountDetailResponse> {
-        val userId = userDetails.username.toLong()
-        val accountResponse = accountService.updateAccountStatus(accountId, userId, status)
-        return ResponseEntity.ok(accountResponse)
-    }
-
-    @GetMapping("/{accountId}/transactions")
-    @Operation(summary = "계좌 거래내역 조회", description = "특정 계좌의 거래내역을 조회합니다.")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "조회 성공",
-            content = [Content(mediaType = "application/json",
-                schema = Schema(implementation = AccountTransactionListResponse::class))]),
-        ApiResponse(responseCode = "401", description = "인증 실패"),
-        ApiResponse(responseCode = "403", description = "권한 없음"),
-        ApiResponse(responseCode = "404", description = "계좌를 찾을 수 없음")
-    ])
+    
+    /**
+     * 계좌 거래내역 조회
+     */
+    @GetMapping("/{fintechUseNum}/transactions")
+    @Operation(
+        summary = "계좌 거래내역 조회",
+        description = "특정 계좌의 거래내역을 조회합니다. 오픈뱅킹 연동이 필요합니다.",
+        security = [SecurityRequirement(name = "bearerAuth")],
+        parameters = [
+            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true),
+            Parameter(name = "fromDate", description = "조회 시작일(YYYYMMDD)", required = true),
+            Parameter(name = "toDate", description = "조회 종료일(YYYYMMDD)", required = true),
+            Parameter(name = "inquiryType", description = "조회 구분(A: 전체, I: 입금, O: 출금)", required = false)
+        ],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "성공적으로 거래내역을 조회했습니다.",
+                content = [Content(schema = Schema(implementation = AccountTransactionListResponse::class))]
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "계좌를 찾을 수 없습니다."
+            )
+        ]
+    )
     fun getAccountTransactions(
-        @Parameter(hidden = true) @AuthenticationPrincipal userDetails: UserDetails,
-        @Parameter(description = "계좌 ID") @PathVariable accountId: Long,
-        @Parameter(description = "조회 시작일 (yyyy-MM-dd)") @RequestParam(required = false) startDate: String?,
-        @Parameter(description = "조회 종료일 (yyyy-MM-dd)") @RequestParam(required = false) endDate: String?,
-        @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") page: Int,
-        @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") size: Int
+        @CurrentUser userPrincipal: UserPrincipal,
+        @PathVariable fintechUseNum: String,
+        @RequestParam fromDate: String,
+        @RequestParam toDate: String,
+        @RequestParam(required = false, defaultValue = "A") inquiryType: String
     ): ResponseEntity<AccountTransactionListResponse> {
-        val userId = userDetails.username.toLong()
-        val transactionsResponse = accountService.getAccountTransactions(
-            userId, 
-            accountId, 
-            startDate, 
-            endDate, 
-            page, 
-            size
+        val transactionList = openBankingAccountService.getAccountTransactions(
+            userPrincipal.id, fintechUseNum, fromDate, toDate, inquiryType
         )
-        return ResponseEntity.ok(transactionsResponse)
+        return ResponseEntity.ok(transactionList)
     }
 } 

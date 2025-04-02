@@ -82,6 +82,20 @@ app:
   cors:
     allowedOrigins: http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080
 
+# 금융결제원 오픈API 설정
+openbanking:
+  base-url: https://testapi.openbanking.or.kr
+  client-id: 98cbdcf5-af4e-4b7e-8ea2-f8bc2ad5809d
+  client-secret: cb228888-9ae7-40c0-88d3-4834865b72bc
+  redirect-uri: http://localhost:8080/api/openbanking/callback
+  auth-url: https://testapi.openbanking.or.kr/oauth/2.0/authorize
+  token-url: https://testapi.openbanking.or.kr/oauth/2.0/token
+  api:
+    account-list: /v2.0/account/list
+    account-detail: /v2.0/account/balance/fin_num
+    transaction-list: /v2.0/transaction/list
+    transfer: /v2.0/transfer/deposit/fin_num
+
 # Swagger UI 설정
 springdoc:
   swagger-ui:

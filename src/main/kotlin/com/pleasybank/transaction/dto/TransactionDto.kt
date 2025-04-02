@@ -34,21 +34,20 @@ data class TransferResponse(
 // 거래 상세 조회 응답 DTO
 data class TransactionDetailResponse(
     val id: Long,
-    val transactionNumber: String,
-    val sourceAccountId: Long?,
-    val sourceAccountNumber: String?,
-    val sourceAccountName: String?,
-    val destinationAccountId: Long?,
-    val destinationAccountNumber: String?,
-    val destinationAccountName: String?,
-    val amount: BigDecimal,
-    val fee: BigDecimal,
-    val totalAmount: BigDecimal,
     val transactionType: String,
+    val sourceAccountId: Long,
+    val sourceAccountNumber: String,
+    val sourceBank: String? = null,
+    val destinationAccountId: Long? = null,
+    val destinationAccountNumber: String? = null,
+    val destinationBank: String? = null,
+    val amount: BigDecimal,
+    val currency: String,
+    val description: String,
     val status: String,
-    val description: String?,
-    val transactionDate: LocalDateTime,
-    val referenceNumber: String
+    val feeAmount: BigDecimal? = null,
+    val transactionDateTime: LocalDateTime,
+    val apiTransactionId: String? = null
 )
 
 // 거래 취소 요청 DTO
@@ -99,10 +98,15 @@ data class ScheduledTransferResponse(
 
 // 거래 생성 요청 DTO
 data class TransactionCreateRequest(
-    val sourceAccountId: Long,
-    val destinationAccountId: Long,
-    val amount: BigDecimal,
-    val description: String? = null
+    val sourceAccountId: Long? = null,
+    val destinationAccountId: Long? = null,
+    val amount: BigDecimal? = null,
+    val description: String? = null,
+    
+    val fintechUseNum: String? = null,
+    val receiverName: String? = null,
+    val receiverBankCode: String? = null,
+    val receiverAccountNum: String? = null
 )
 
 // 거래 목록 요청 DTO
@@ -117,7 +121,7 @@ data class TransactionListRequest(
 
 // 거래 목록 응답 DTO
 data class TransactionListResponse(
-    val content: List<TransactionSummary>,
+    val transactions: List<TransactionDetailResponse>,
     val page: Int,
     val size: Int,
     val totalElements: Long,

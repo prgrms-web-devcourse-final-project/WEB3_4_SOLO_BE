@@ -31,6 +31,21 @@ data class UserOAuth(
     @Column(name = "token_expires_at")
     var tokenExpiresAt: LocalDateTime? = null,
     
+    @Column(name = "openbanking_access_token")
+    var openBankingAccessToken: String? = null,
+    
+    @Column(name = "openbanking_refresh_token")
+    var openBankingRefreshToken: String? = null,
+    
+    @Column(name = "openbanking_user_seq_no")
+    var openBankingUserSeqNo: String? = null,
+    
+    @Column(name = "openbanking_token_expires_at")
+    var openBankingTokenExpiresAt: LocalDateTime? = null,
+    
+    @Column(name = "openbanking_linked")
+    var isOpenBankingLinked: Boolean = false,
+    
     @Column(nullable = false, name = "created_at")
     val createdAt: LocalDateTime = LocalDateTime.now(),
     
