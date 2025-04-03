@@ -1,52 +1,51 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:pleasybank
+    url: jdbc:h2:mem:testdb
     driver-class-name: org.h2.Driver
     username: sa
-    password: password
+    password:
   h2:
     console:
       enabled: true
       path: /h2-console
   jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: always
+    timeout: 1800
+  main:
+    allow-bean-definition-overriding: true
   security:
     oauth2:
       client:
         registration:
           kakao:
-            client-id: dfbb49ef3546d43dae6f375358b0008e
-            client-secret: tCi6WRWfWenBMrfbTaTH502WjYkHOsDI
-            redirect-uri: http://localhost:3000/auth/callback/kakao
+            client-id: ${KAKAO_CLIENT_ID:dfbb49ef3546d43dae6f375358b0008e}
+            client-secret: ${KAKAO_CLIENT_SECRET:tCi6WRWfWenBMrfbTaTH502WjYkHOsDI}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
-            client-name: kakao
             client-authentication-method: client_secret_post
+            client-name: Kakao
             scope:
               - profile_nickname
               - profile_image
-              
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
             token-uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
-  session:
-    store-type: jdbc
-    jdbc:
-      initialize-schema: always
-      schema: classpath:org/springframework/session/jdbc/schema-h2.sql
-      table-name: SPRING_SESSION
-    timeout: 3600
-  main:
-    allow-bean-definition-overriding: true
-  
+  application:
+    name: pleasybank-backend-kotlin
+
 server:
   port: 8080
   servlet:
@@ -57,7 +56,7 @@ server:
         secure: false
         same-site: lax
         name: KSESSION
-        max-age: 3600
+        max-age: 1800
       timeout: 3600
       tracking-modes: cookie
 
@@ -80,25 +79,23 @@ app:
     authorizedRedirectUris:
       - http://localhost:8080/auth/token-display
   cors:
-    allowedOrigins: http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:8080
+    allowed-origins: http://localhost:3000
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: Authorization,Content-Type,Accept
+    max-age: 3600
+    allow-credentials: true
   jwt:
-    secret: pleasy987654321pleasy987654321pleasy987654321pleasy987654321
-    expirationMs: 86400000
-    refreshExpirationMs: 2592000000
+    secret: ${JWT_SECRET:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()}
+    expiration: 86400000
 
 # 금융결제원 오픈API 설정
 openbanking:
-  base-url: https://testapi.openbanking.or.kr
-  client-id: 98cbdcf5-af4e-4b7e-8ea2-f8bc2ad5809d
-  client-secret: cb228888-9ae7-40c0-88d3-4834865b72bc
-  redirect-uri: http://localhost:8080/api/openbanking/callback
-  auth-url: https://testapi.openbanking.or.kr/oauth/2.0/authorize
-  token-url: https://testapi.openbanking.or.kr/oauth/2.0/token
-  api:
-    account-list: /v2.0/account/list
-    account-detail: /v2.0/account/balance/fin_num
-    transaction-list: /v2.0/transaction/list
-    transfer: /v2.0/transfer/deposit/fin_num
+  client-id: ${OPENBANKING_CLIENT_ID:test_client_id}
+  client-secret: ${OPENBANKING_CLIENT_SECRET:test_client_secret}
+  redirect-uri: ${OPENBANKING_REDIRECT_URI:http://localhost:8080/api/openbanking/callback}
+  auth-url: ${OPENBANKING_AUTH_URL:https://testapi.openbanking.or.kr/oauth/2.0/authorize}
+  token-url: ${OPENBANKING_TOKEN_URL:https://testapi.openbanking.or.kr/oauth/2.0/token}
+  api-base-url: ${OPENBANKING_API_BASE_URL:https://testapi.openbanking.or.kr}
 
 # Swagger UI 설정
 springdoc:

@@ -17,7 +17,7 @@ import org.springframework.web.reactive.function.client.WebClient
 class OpenBankingService(
     private val webClient: WebClient,
     
-    @Value("\${openbanking.base-url}")
+    @Value("\${openbanking.api-base-url}")
     private val baseUrl: String,
     
     @Value("\${openbanking.client-id}")

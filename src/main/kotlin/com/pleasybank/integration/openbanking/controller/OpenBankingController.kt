@@ -56,6 +56,59 @@ class OpenBankingController(
     private val logger = LoggerFactory.getLogger(OpenBankingController::class.java)
     
     /**
+     * 프론트엔드를 위한 오픈뱅킹 인증 URL 제공
+     */
+    @GetMapping("/auth-url")
+    @Operation(
+        summary = "오픈뱅킹 인증 URL 제공", 
+        description = "인증된 사용자에게 오픈뱅킹 인증 페이지 URL을 제공합니다.",
+        security = [SecurityRequirement(name = "bearer-key")],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "성공적으로 URL 정보 반환",
+                content = [Content(schema = Schema(implementation = Map::class))]
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = "인증되지 않은 사용자",
+                content = [Content(schema = Schema(implementation = Map::class))]
+            )
+        ]
+    )
+    fun getAuthUrl(
+        @AuthenticationPrincipal userDetails: UserDetails,
+        request: HttpServletRequest
+    ): ResponseEntity<Map<String, String>> {
+        logger.info("오픈뱅킹 인증 URL 요청: user=${userDetails.username}")
+        
+        try {
+            // 사용자 정보 (OAuth 제공자는 KAKAO로 고정)
+            val provider = "KAKAO"
+            val oauthUserId = userDetails.username
+            
+            // 세션에 사용자 정보 저장 (콜백에서 사용)
+            request.session.setAttribute("OPENBANKING_AUTH_PROVIDER", provider)
+            request.session.setAttribute("OPENBANKING_AUTH_OAUTH_USER_ID", oauthUserId)
+            
+            // 사용자 ID와 제공자 정보를 상태 파라미터에 인코딩하여 콜백에서 사용
+            val stateJson = """{"provider":"$provider","oauthUserId":"$oauthUserId","sessionId":"${request.session.id}"}"""
+            val state = URLEncoder.encode(stateJson, StandardCharsets.UTF_8.toString())
+            
+            val encodedRedirectUri = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8.toString())
+            val authPageUrl = "$authUrl?response_type=code&client_id=$clientId&redirect_uri=$encodedRedirectUri&scope=login inquiry transfer&state=$state&auth_type=0"
+            
+            logger.info("오픈뱅킹 인증 URL 생성: $authPageUrl")
+            return ResponseEntity.ok(mapOf("authorizationUrl" to authPageUrl))
+        } catch (e: Exception) {
+            logger.error("오픈뱅킹 인증 URL 생성 중 오류 발생", e)
+            return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(mapOf("error" to "open_banking_auth_error", "message" to (e.message ?: "인증 URL 생성 중 오류가 발생했습니다")))
+        }
+    }
+    
+    /**
      * 오픈뱅킹 사용자 인증 페이지로 리다이렉트
      */
     @GetMapping("/auth")
