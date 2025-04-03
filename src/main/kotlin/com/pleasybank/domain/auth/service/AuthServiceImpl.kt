@@ -42,10 +42,11 @@ class AuthServiceImpl(
 ) : AuthService {
     private val logger = LoggerFactory.getLogger(AuthServiceImpl::class.java)
     
-    @Value("\${spring.security.oauth2.client.registration.kakao.client-id}")
+    // 기본값 제공
+    @Value("\${spring.security.oauth2.client.registration.kakao.client-id:be56a79b5d2ef5456c6c2cf55d89dd38}")
     private lateinit var kakaoClientId: String
     
-    @Value("\${spring.security.oauth2.client.registration.kakao.client-secret}")
+    @Value("\${spring.security.oauth2.client.registration.kakao.client-secret:your-client-secret}")
     private lateinit var kakaoClientSecret: String
     
     @Transactional
@@ -294,7 +295,10 @@ class AuthServiceImpl(
             val formParams = LinkedMultiValueMap<String, String>()
             formParams.add("grant_type", "authorization_code")
             formParams.add("client_id", kakaoClientId)
-            formParams.add("client_secret", kakaoClientSecret)
+            // 클라이언트 시크릿이 비어있는 경우 처리
+            if (kakaoClientSecret.isNotBlank() && kakaoClientSecret != "your-client-secret") {
+                formParams.add("client_secret", kakaoClientSecret)
+            }
             formParams.add("redirect_uri", redirectUri)
             formParams.add("code", code)
             
