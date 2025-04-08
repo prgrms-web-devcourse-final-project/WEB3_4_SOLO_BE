@@ -1,157 +1,121 @@
 package com.pleasybank.domain.account.controller
 
-import com.pleasybank.domain.account.dto.*
-import com.pleasybank.domain.account.service.OpenBankingAccountService
 import com.pleasybank.core.security.CurrentUser
-import com.pleasybank.core.security.UserPrincipal
+import com.pleasybank.domain.account.dto.*
+import com.pleasybank.domain.account.service.AccountService
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.media.Content
-import io.swagger.v3.oas.annotations.media.Schema
-import io.swagger.v3.oas.annotations.responses.ApiResponse
-import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.data.web.PageableDefault
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
+import java.math.BigDecimal
 
-/**
- * 계좌 컨트롤러
- * 계좌 목록 조회, 계좌 상세 정보, 잔액, 거래내역 조회 엔드포인트를 제공합니다.
- */
 @RestController
 @RequestMapping("/api/accounts")
-@Tag(name = "계좌 API", description = "계좌 관련 엔드포인트")
+@Tag(name = "계좌 API", description = "계좌 관련 API")
 class AccountController(
-    private val openBankingAccountService: OpenBankingAccountService
+    private val accountService: AccountService
 ) {
-    
-    /**
-     * 사용자의 계좌 목록 조회
-     */
-    @GetMapping
-    @Operation(
-        summary = "계좌 목록 조회",
-        description = "현재 로그인한 사용자의 계좌 목록을 조회합니다. 오픈뱅킹 연동이 필요합니다.",
-        security = [SecurityRequirement(name = "bearerAuth")],
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                description = "성공적으로 계좌 목록을 조회했습니다.",
-                content = [Content(schema = Schema(implementation = AccountListResponse::class))]
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "오픈뱅킹 연동이 필요합니다."
-            )
-        ]
-    )
-    fun getAccounts(
-        @CurrentUser userPrincipal: UserPrincipal,
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "10") size: Int
-    ): ResponseEntity<AccountListResponse> {
-        val accountList = openBankingAccountService.getAccountsByUserId(userPrincipal.id, page, size)
-        return ResponseEntity.ok(accountList)
+
+    @Operation(summary = "계좌 생성", description = "사용자 계좌를 생성합니다.")
+    @PostMapping
+    @PreAuthorize("hasRole('USER')")
+    fun createAccount(
+        @CurrentUser userId: Long,
+        @Valid @RequestBody request: CreateAccountRequest
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.createAccount(userId, request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
-    
-    /**
-     * 특정 계좌의 상세 정보 조회
-     */
-    @GetMapping("/{fintechUseNum}")
-    @Operation(
-        summary = "계좌 상세 정보 조회",
-        description = "특정 계좌의 상세 정보를 조회합니다. 오픈뱅킹 연동이 필요합니다.",
-        security = [SecurityRequirement(name = "bearerAuth")],
-        parameters = [
-            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true)
-        ],
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                description = "성공적으로 계좌 정보를 조회했습니다.",
-                content = [Content(schema = Schema(implementation = AccountDetailResponse::class))]
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "계좌를 찾을 수 없습니다."
-            )
-        ]
-    )
-    fun getAccountByFintechNum(
-        @CurrentUser userPrincipal: UserPrincipal,
-        @PathVariable fintechUseNum: String
-    ): ResponseEntity<AccountDetailResponse> {
-        val account = openBankingAccountService.getAccountByFintechNum(userPrincipal.id, fintechUseNum)
-        return ResponseEntity.ok(account)
+
+    @Operation(summary = "계좌 상세 조회", description = "지정된 ID의 계좌 상세 정보를 조회합니다.")
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    fun getAccountById(
+        @PathVariable id: Long
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.getAccountById(id)
+        return ResponseEntity.ok(response)
     }
-    
-    /**
-     * 계좌 잔액 조회
-     */
-    @GetMapping("/{fintechUseNum}/balance")
-    @Operation(
-        summary = "계좌 잔액 조회",
-        description = "특정 계좌의 잔액 정보를 조회합니다. 오픈뱅킹 연동이 필요합니다.",
-        security = [SecurityRequirement(name = "bearerAuth")],
-        parameters = [
-            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true)
-        ],
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                description = "성공적으로 잔액 정보를 조회했습니다.",
-                content = [Content(schema = Schema(implementation = AccountBalanceResponse::class))]
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "계좌를 찾을 수 없습니다."
-            )
-        ]
-    )
-    fun getAccountBalance(
-        @CurrentUser userPrincipal: UserPrincipal,
-        @PathVariable fintechUseNum: String
-    ): ResponseEntity<AccountBalanceResponse> {
-        val balanceResponse = openBankingAccountService.getAccountBalance(userPrincipal.id, fintechUseNum)
-        return ResponseEntity.ok(balanceResponse)
+
+    @Operation(summary = "현재 사용자의 계좌 목록 조회", description = "로그인한 사용자의 계좌 목록을 페이지네이션으로 조회합니다.")
+    @GetMapping("/my")
+    @PreAuthorize("isAuthenticated()")
+    fun getMyAccounts(
+        @CurrentUser userId: Long,
+        @PageableDefault(size = 10, sort = ["createdAt"]) pageable: Pageable
+    ): ResponseEntity<Page<AccountResponse>> {
+        val response = accountService.getUserAccounts(userId, pageable)
+        return ResponseEntity.ok(response)
     }
-    
-    /**
-     * 계좌 거래내역 조회
-     */
-    @GetMapping("/{fintechUseNum}/transactions")
-    @Operation(
-        summary = "계좌 거래내역 조회",
-        description = "특정 계좌의 거래내역을 조회합니다. 오픈뱅킹 연동이 필요합니다.",
-        security = [SecurityRequirement(name = "bearerAuth")],
-        parameters = [
-            Parameter(name = "fintechUseNum", description = "핀테크 이용번호", required = true),
-            Parameter(name = "fromDate", description = "조회 시작일(YYYYMMDD)", required = true),
-            Parameter(name = "toDate", description = "조회 종료일(YYYYMMDD)", required = true),
-            Parameter(name = "inquiryType", description = "조회 구분(A: 전체, I: 입금, O: 출금)", required = false)
-        ],
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                description = "성공적으로 거래내역을 조회했습니다.",
-                content = [Content(schema = Schema(implementation = AccountTransactionListResponse::class))]
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "계좌를 찾을 수 없습니다."
-            )
-        ]
-    )
-    fun getAccountTransactions(
-        @CurrentUser userPrincipal: UserPrincipal,
-        @PathVariable fintechUseNum: String,
-        @RequestParam fromDate: String,
-        @RequestParam toDate: String,
-        @RequestParam(required = false, defaultValue = "A") inquiryType: String
-    ): ResponseEntity<AccountTransactionListResponse> {
-        val transactionList = openBankingAccountService.getAccountTransactions(
-            userPrincipal.id, fintechUseNum, fromDate, toDate, inquiryType
-        )
-        return ResponseEntity.ok(transactionList)
+
+    @Operation(summary = "현재 사용자의 총 잔액 조회", description = "로그인한 사용자의 모든 계좌의 총 잔액을 조회합니다.")
+    @GetMapping("/my/total-balance")
+    @PreAuthorize("isAuthenticated()")
+    fun getMyTotalBalance(
+        @CurrentUser userId: Long
+    ): ResponseEntity<Map<String, BigDecimal>> {
+        val totalBalance = accountService.getUserTotalBalance(userId)
+        return ResponseEntity.ok(mapOf("totalBalance" to totalBalance))
+    }
+
+    @Operation(summary = "계좌 수정", description = "지정된 ID의 계좌 정보를 수정합니다.")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('USER')")
+    fun updateAccount(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: UpdateAccountRequest
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.updateAccount(id, request)
+        return ResponseEntity.ok(response)
+    }
+
+    @Operation(summary = "계좌 해지", description = "지정된 ID의 계좌를 해지합니다.")
+    @PatchMapping("/{id}/close")
+    @PreAuthorize("hasRole('USER')")
+    fun closeAccount(
+        @PathVariable id: Long
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.closeAccount(id)
+        return ResponseEntity.ok(response)
+    }
+
+    @Operation(summary = "잔액 입금", description = "지정된 ID의 계좌에 금액을 입금합니다.")
+    @PostMapping("/{id}/deposit")
+    @PreAuthorize("hasRole('USER')")
+    fun deposit(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: UpdateBalanceRequest
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.deposit(id, request.amount, request.description)
+        return ResponseEntity.ok(response)
+    }
+
+    @Operation(summary = "잔액 출금", description = "지정된 ID의 계좌에서 금액을 출금합니다.")
+    @PostMapping("/{id}/withdraw")
+    @PreAuthorize("hasRole('USER')")
+    fun withdraw(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: UpdateBalanceRequest
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.withdraw(id, request.amount, request.description)
+        return ResponseEntity.ok(response)
+    }
+
+    @Operation(summary = "계좌 이체", description = "한 계좌에서 다른 계좌로 금액을 이체합니다.")
+    @PostMapping("/{fromId}/transfer/{toId}")
+    @PreAuthorize("hasRole('USER')")
+    fun transfer(
+        @PathVariable fromId: Long,
+        @PathVariable toId: Long,
+        @Valid @RequestBody request: UpdateBalanceRequest
+    ): ResponseEntity<AccountResponse> {
+        val response = accountService.transfer(fromId, toId, request.amount, request.description)
+        return ResponseEntity.ok(response)
     }
 } 
