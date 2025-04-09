@@ -45,9 +45,6 @@ data class ProductSubscription(
     @Column(name = "expected_return", precision = 15, scale = 2)
     val expectedReturn: BigDecimal? = null,
     
-    @Column(name = "auto_renew")
-    val autoRenew: Boolean = false,
-    
     @Column(name = "created_at", nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     

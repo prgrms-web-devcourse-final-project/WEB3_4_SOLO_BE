@@ -79,51 +79,25 @@ class ProductSubscriptionScheduler(
     private fun processSubscription(subscription: ProductSubscription) {
         logger.info("상품 구독 만기 처리 시작. ID: {}, 사용자: {}, 상품: {}", 
             subscription.id, subscription.user.id, subscription.product.id)
+            
+        logger.info("만기 처리 (원금+이자 지급). 구독 ID: {}", subscription.id)
         
-        // 자동 연장 여부 확인
-        if (subscription.autoRenew) {
-            logger.info("자동 연장 처리. 구독 ID: {}", subscription.id)
-            // 새 만기일 계산 (기존 만기일로부터 상품의 기본 기간만큼 연장)
-            val newMaturityDate = calculateNewMaturityDate(subscription)
-            
-            // 구독 상태 업데이트 (만기일 연장)
-            val request = com.pleasybank.domain.product.dto.UpdateProductSubscriptionRequest(
-                maturityDate = newMaturityDate
-            )
-            
-            financialProductService.updateProductSubscription(subscription.id!!, request)
-            logger.info("자동 연장 완료. 구독 ID: {}, 새 만기일: {}", subscription.id, newMaturityDate)
-        } else {
-            logger.info("만기 처리 (원금+이자 지급). 구독 ID: {}", subscription.id)
-            
-            // 원금과 이자 합산 금액
-            val totalAmount = subscription.amount.add(subscription.expectedReturn ?: BigDecimal.ZERO)
-            
-            // 계좌에 입금
-            accountService.deposit(
-                subscription.account.id!!, 
-                totalAmount, 
-                "금융 상품 만기 지급 (상품: ${subscription.product.name})"
-            )
-            
-            // 구독 상태 업데이트
-            val request = com.pleasybank.domain.product.dto.UpdateProductSubscriptionRequest(
-                status = "MATURED"
-            )
-            
-            financialProductService.updateProductSubscription(subscription.id!!, request)
-            logger.info("만기 처리 완료. 구독 ID: {}, 지급 금액: {}", subscription.id, totalAmount)
-        }
-    }
-    
-    /**
-     * 새 만기일 계산
-     */
-    private fun calculateNewMaturityDate(subscription: ProductSubscription): LocalDate {
-        // 상품의 기본 기간 (없으면 1년으로 가정)
-        val termMonths = subscription.product.term ?: 12
+        // 원금과 이자 합산 금액
+        val totalAmount = subscription.amount.add(subscription.expectedReturn ?: BigDecimal.ZERO)
         
-        // 현재 만기일로부터 기간만큼 연장
-        return subscription.maturityDate.plusMonths(termMonths.toLong())
+        // 계좌에 입금
+        accountService.deposit(
+            subscription.account.id!!, 
+            totalAmount, 
+            "금융 상품 만기 지급 (상품: ${subscription.product.name})"
+        )
+        
+        // 구독 상태 업데이트
+        val request = com.pleasybank.domain.product.dto.UpdateProductSubscriptionRequest(
+            status = "MATURED"
+        )
+        
+        financialProductService.updateProductSubscription(subscription.id!!, request)
+        logger.info("만기 처리 완료. 구독 ID: {}, 지급 금액: {}", subscription.id, totalAmount)
     }
 } 

@@ -1,6 +1,7 @@
 package com.pleasybank.domain.account.service
 
 import com.pleasybank.core.exception.ResourceNotFoundException
+import com.pleasybank.core.exception.DuplicateAccountNumberException
 import com.pleasybank.domain.account.dto.*
 import com.pleasybank.domain.account.entity.Account
 import com.pleasybank.domain.account.repository.AccountRepository
@@ -28,7 +29,7 @@ class AccountServiceImpl(
         
         // 기존 계좌번호 중복 체크
         if (accountRepository.findByAccountNumber(request.accountNumber).isPresent) {
-            throw IllegalArgumentException("이미 등록된 계좌번호입니다: ${request.accountNumber}")
+            throw DuplicateAccountNumberException(request.accountNumber)
         }
         
         val account = Account(

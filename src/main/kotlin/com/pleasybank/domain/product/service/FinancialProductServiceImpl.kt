@@ -248,7 +248,6 @@ class FinancialProductServiceImpl(
             maturityDate = request.maturityDate,
             interestRate = product.interestRate,
             expectedReturn = calculateExpectedReturn(request.amount, product.interestRate, ChronoUnit.MONTHS.between(LocalDate.now(), request.maturityDate).toInt()),
-            autoRenew = request.autoRenew,
             createdAt = LocalDateTime.now(),
             updatedAt = LocalDateTime.now()
         )
@@ -302,7 +301,6 @@ class FinancialProductServiceImpl(
         val updatedSubscription = subscription.copy(
             amount = request.amount ?: subscription.amount,
             maturityDate = request.maturityDate ?: subscription.maturityDate,
-            autoRenew = request.autoRenew ?: subscription.autoRenew,
             status = request.status ?: subscription.status,
             updatedAt = LocalDateTime.now()
         )

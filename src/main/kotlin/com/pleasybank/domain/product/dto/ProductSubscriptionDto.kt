@@ -22,7 +22,6 @@ data class ProductSubscriptionResponse(
     val maturityDate: LocalDate,
     val interestRate: BigDecimal,
     val expectedReturn: BigDecimal?,
-    val autoRenew: Boolean,
     val status: String,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
@@ -43,7 +42,6 @@ data class ProductSubscriptionResponse(
                 maturityDate = entity.maturityDate,
                 interestRate = entity.interestRate,
                 expectedReturn = entity.expectedReturn,
-                autoRenew = entity.autoRenew,
                 status = entity.status,
                 createdAt = entity.createdAt,
                 updatedAt = entity.updatedAt
@@ -65,15 +63,12 @@ data class CreateProductSubscriptionRequest(
     val amount: BigDecimal,
     
     @field:NotNull(message = "만기일은 필수입니다")
-    val maturityDate: LocalDate,
-    
-    val autoRenew: Boolean = false
+    val maturityDate: LocalDate
 )
 
 // 상품 구독 수정 요청 DTO
 data class UpdateProductSubscriptionRequest(
     val amount: BigDecimal? = null,
     val maturityDate: LocalDate? = null,
-    val autoRenew: Boolean? = null,
     val status: String? = null
 ) 

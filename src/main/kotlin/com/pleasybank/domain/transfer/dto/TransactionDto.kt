@@ -24,29 +24,6 @@ data class CreateTransactionRequest(
     val description: String? = null
 )
 
-// 자동이체 설정 요청 DTO
-data class RecurringTransferRequest(
-    @field:NotNull(message = "출금 계좌 ID는 필수입니다")
-    val fromAccountId: Long,
-    
-    @field:NotNull(message = "입금 계좌 ID는 필수입니다")
-    val toAccountId: Long,
-    
-    @field:NotNull(message = "금액은 필수입니다")
-    @field:Positive(message = "금액은 양수여야 합니다")
-    val amount: BigDecimal,
-    
-    @field:NotBlank(message = "이체 주기는 필수입니다")
-    val schedule: String, // DAILY, WEEKLY, MONTHLY
-    
-    @field:NotNull(message = "시작일은 필수입니다")
-    val startDate: LocalDateTime,
-    
-    val endDate: LocalDateTime? = null,
-    
-    val description: String? = null
-)
-
 // 거래 조회 응답 DTO
 data class TransactionResponse(
     val id: Long,

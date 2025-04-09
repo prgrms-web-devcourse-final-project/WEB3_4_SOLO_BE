@@ -11,6 +11,11 @@ class ResourceNotFoundException(message: String) : RuntimeException(message)
 class DuplicateResourceException(message: String) : RuntimeException(message)
 
 /**
+ * 중복된 계좌번호가 발견될 때 발생하는 예외
+ */
+class DuplicateAccountNumberException(accountNumber: String) : RuntimeException("이미 등록된 계좌번호입니다: $accountNumber")
+
+/**
  * 인증 정보가 유효하지 않을 때 발생하는 예외
  */
 class InvalidCredentialsException(message: String) : RuntimeException(message)
