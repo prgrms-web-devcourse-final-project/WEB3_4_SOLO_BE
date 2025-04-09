@@ -5,7 +5,7 @@ import java.time.LocalDateTime
 
 /**
  * 사용자 엔티티
- * 사용자 기본 정보를 저장하는 엔티티입니다.
+ * 시스템의 사용자 정보를 저장하는 엔티티입니다.
  */
 @Entity
 @Table(name = "users")
@@ -18,26 +18,65 @@ data class User(
     val email: String,
     
     @Column(nullable = false)
-    val password: String,
+    var password: String,
     
     @Column(nullable = false)
-    val name: String,
+    var name: String,
     
     @Column(name = "phone_number")
-    val phoneNumber: String? = null,
+    var phoneNumber: String? = null,
     
     @Column(name = "profile_image_url")
-    val profileImageUrl: String? = null,
+    var profileImageUrl: String? = null,
     
     @Column(name = "last_login_at")
-    val lastLoginAt: LocalDateTime? = null,
+    var lastLoginAt: LocalDateTime? = null,
     
-    @Column(nullable = false, name = "created_at")
+    @Column(name = "created_at", nullable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
     
-    @Column(nullable = false, name = "updated_at")
-    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: LocalDateTime = LocalDateTime.now(),
     
     @Column(nullable = false)
-    val status: String = "ACTIVE"
-) 
+    var status: String = "ACTIVE", // ACTIVE, INACTIVE, BLOCKED
+    
+    @Column
+    var provider: String = "LOCAL", // LOCAL, GOOGLE, KAKAO, etc.
+    
+    @Column(name = "provider_id")
+    var providerId: String? = null,
+    
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], orphanRemoval = true)
+    val userRoles: MutableList<UserRole> = mutableListOf()
+) {
+    // 사용자 역할 추가 메서드
+    fun addRole(role: Role, grantedBy: String? = null): UserRole {
+        val userRole = UserRole(
+            user = this,
+            role = role,
+            grantedBy = grantedBy
+        )
+        userRoles.add(userRole)
+        return userRole
+    }
+    
+    // 사용자 역할 제거 메서드
+    fun removeRole(role: Role) {
+        userRoles.removeIf { it.role.id == role.id }
+    }
+    
+    // 사용자가 특정 역할을 가지고 있는지 확인하는 메서드
+    fun hasRole(roleName: String): Boolean {
+        return userRoles.any { it.role.name == roleName }
+    }
+    
+    // data 클래스의 copy 대신 동적 필드 업데이트를 위한 메서드
+    fun updateOAuth2Info(provider: String, providerId: String): User {
+        this.provider = provider
+        this.providerId = providerId
+        this.lastLoginAt = LocalDateTime.now()
+        this.updatedAt = LocalDateTime.now()
+        return this
+    }
+} 
