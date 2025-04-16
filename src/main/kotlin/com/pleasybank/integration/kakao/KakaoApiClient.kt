@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
@@ -28,6 +29,11 @@ class KakaoApiClient(
     @Value("\${spring.security.oauth2.client.registration.kakao.client-secret}")
     private lateinit var clientSecret: String
     
+    companion object {
+        private const val KAKAO_AUTH_URL = "https://kauth.kakao.com"
+        private const val KAKAO_API_URL = "https://kapi.kakao.com"
+    }
+
     /**
      * 인증 코드로 카카오 액세스 토큰 요청
      */
@@ -51,21 +57,19 @@ class KakaoApiClient(
             val request = HttpEntity(formParams, headers)
             
             // 요청 실행
-            val response = restTemplate.postForEntity(
-                "https://kauth.kakao.com/oauth/token", 
-                request, 
-                String::class.java
+            val response = restTemplate.postForObject(
+                "$KAKAO_AUTH_URL/oauth/token",
+                request,
+                KakaoTokenResponse::class.java
             )
             
             // 응답 처리
-            if (response.statusCode.is2xxSuccessful) {
-                val mapper = com.fasterxml.jackson.databind.ObjectMapper()
-                val tokenResponse = mapper.readValue(response.body, KakaoTokenResponse::class.java)
-                logger.info("카카오 토큰 요청 성공: access_token=${tokenResponse.access_token.take(10)}...")
-                return tokenResponse
+            if (response != null) {
+                logger.info("카카오 토큰 요청 성공: access_token=${response.accessToken.take(10)}...")
+                return response
             } else {
-                logger.error("카카오 토큰 요청 실패: ${response.statusCode}, 응답: ${response.body}")
-                throw KakaoApiException("카카오 토큰 요청 실패: ${response.statusCode}")
+                logger.error("카카오 토큰 요청 실패: 응답을 받지 못했습니다")
+                throw KakaoApiException("카카오 토큰 요청 실패: 응답을 받지 못했습니다")
             }
         } catch (ex: HttpClientErrorException) {
             val responseBody = ex.responseBodyAsString
@@ -86,22 +90,22 @@ class KakaoApiClient(
         try {
             val headers = HttpHeaders()
             headers.set("Authorization", "Bearer $accessToken")
-            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             
             val request = HttpEntity<String>(headers)
             
-            val response = restTemplate.postForEntity(
-                "https://kapi.kakao.com/v2/user/me", 
-                request, 
+            val response = restTemplate.exchange(
+                "$KAKAO_API_URL/v2/user/me",
+                HttpMethod.GET,
+                request,
                 KakaoUserInfoResponse::class.java
-            )
+            ).body
             
-            if (response.statusCode.is2xxSuccessful && response.body != null) {
-                logger.info("카카오 사용자 정보 요청 성공: id=${response.body?.id}")
-                return response.body!!
+            if (response != null) {
+                logger.info("카카오 사용자 정보 요청 성공: id=${response.id}")
+                return response
             } else {
-                logger.error("카카오 사용자 정보 요청 실패: ${response.statusCode}")
-                throw KakaoApiException("카카오 사용자 정보 요청 실패: ${response.statusCode}")
+                logger.error("카카오 사용자 정보 요청 실패: 응답을 받지 못했습니다")
+                throw KakaoApiException("카카오 사용자 정보 요청 실패: 응답을 받지 못했습니다")
             }
         } catch (ex: HttpClientErrorException) {
             logger.error("카카오 사용자 정보 요청 HTTP 오류: ${ex.statusCode}", ex)

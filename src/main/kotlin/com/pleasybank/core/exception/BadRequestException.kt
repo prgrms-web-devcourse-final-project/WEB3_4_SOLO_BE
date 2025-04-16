@@ -4,11 +4,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.ResponseStatus
 
 /**
- * 잘못된 요청이 발생했을 때 발생하는 예외
- * 400 Bad Request 응답을 반환합니다.
+ * 잘못된 요청 예외
+ * 클라이언트의 요청이 잘못되었을 때 발생하는 예외
  */
 @ResponseStatus(HttpStatus.BAD_REQUEST)
-class BadRequestException : RuntimeException {
-    constructor(message: String) : super(message)
-    constructor(message: String, cause: Throwable) : super(message, cause)
-} 
+class BadRequestException(message: String) : RuntimeException(message) 

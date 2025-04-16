@@ -1,21 +1,37 @@
 package com.pleasybank.domain.user.service
 
-import com.pleasybank.domain.user.dto.UserProfileResponse
-import com.pleasybank.domain.user.dto.UserProfileUpdateRequest
-import com.pleasybank.domain.user.dto.UserProfileUpdateResponse
+import com.pleasybank.domain.user.dto.UserDto
+import com.pleasybank.domain.user.entity.User
+import org.springframework.web.multipart.MultipartFile
 
-/**
- * 사용자 서비스 인터페이스
- * 사용자 프로필 조회 및 수정 관련 기능을 제공합니다.
- */
 interface UserService {
     /**
-     * 사용자 프로필 조회
+     * 사용자 ID로 사용자 정보 조회
      */
-    fun getUserProfile(userId: Long): UserProfileResponse
+    fun getUserById(id: Long): UserDto.Response
     
     /**
-     * 사용자 프로필 수정
+     * 사용자 정보 업데이트
      */
-    fun updateUserProfile(userId: Long, request: UserProfileUpdateRequest): UserProfileUpdateResponse
+    fun updateUser(id: Long, request: UserDto.UpdateRequest): UserDto.Response
+    
+    /**
+     * 비밀번호 변경
+     */
+    fun updatePassword(id: Long, currentPassword: String, newPassword: String): Boolean
+    
+    /**
+     * 사용자 삭제
+     */
+    fun deleteUser(id: Long)
+    
+    /**
+     * 프로필 이미지 업데이트
+     */
+    fun updateProfileImage(id: Long, file: MultipartFile): UserDto.Response
+    
+    /**
+     * 이메일로 사용자 조회
+     */
+    fun getUserByEmail(email: String): User?
 } 
