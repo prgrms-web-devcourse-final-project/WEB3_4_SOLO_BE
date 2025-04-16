@@ -271,7 +271,7 @@ class TransactionServiceImpl(
         toAccount: Account?, 
         amount: BigDecimal, 
         type: String, 
-        description: String
+        description: String?
     ): Transaction {
         val transaction = Transaction(
             fromAccount = fromAccount,

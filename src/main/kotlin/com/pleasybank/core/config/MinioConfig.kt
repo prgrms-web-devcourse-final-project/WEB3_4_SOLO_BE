@@ -8,16 +8,16 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
 
 @Configuration
-@ConditionalOnProperty(name = ["minio.enabled"], havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(name = ["minio.enabled"], havingValue = "true", matchIfMissing = true)
 class MinioConfig {
 
-    @Value("\${minio.endpoint}")
+    @Value("\${minio.endpoint:http://localhost:9000}")
     private lateinit var endpoint: String
 
-    @Value("\${minio.accessKey}")
+    @Value("\${minio.access-key:minioadmin}")
     private lateinit var accessKey: String
 
-    @Value("\${minio.secretKey}")
+    @Value("\${minio.secret-key:minioadmin}")
     private lateinit var secretKey: String
 
     // 하드코딩된 기본 버킷 목록 사용

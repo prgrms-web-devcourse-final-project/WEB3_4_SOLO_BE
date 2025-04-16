@@ -98,6 +98,22 @@ class TransactionDto {
         val description: String
     )
     
+    data class SendRequest(
+        @field:NotNull(message = "출금 계좌 ID는 필수입니다.")
+        val fromAccountId: Long,
+        
+        val toAccountId: Long? = null,
+        
+        @field:NotBlank(message = "입금 계좌번호는 필수입니다.")
+        val toAccountNumber: String,
+        
+        @field:NotNull(message = "이체 금액은 필수입니다.")
+        @field:Min(value = 100, message = "최소 이체 금액은 100원입니다.")
+        val amount: BigDecimal,
+        
+        val description: String? = "계좌이체"
+    )
+    
     data class DepositRequest(
         @field:NotNull(message = "계좌 ID는 필수입니다.")
         val accountId: Long,

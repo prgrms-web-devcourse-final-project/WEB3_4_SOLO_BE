@@ -1,6 +1,7 @@
 package com.pleasybank.domain.account.service
 
 import com.pleasybank.domain.account.dto.*
+import com.pleasybank.domain.account.entity.AccountType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import java.math.BigDecimal
@@ -31,6 +32,12 @@ interface AccountService {
     fun validateAccount(accountNumber: String, bank: String): Boolean
     
     fun getUserTotalBalance(userId: Long): BigDecimal
+    
+    // 잔액 검증 기능 추가
+    fun validateSufficientBalance(accountId: Long, amount: BigDecimal): Boolean
+    
+    // 초기 잔액 없이 생성 가능한 계좌 유형 검증
+    fun canCreateWithZeroBalance(accountType: AccountType): Boolean
     
     // 관리자 기능
     fun getAllAccounts(): List<AccountResponse>

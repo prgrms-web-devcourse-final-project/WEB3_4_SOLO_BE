@@ -14,10 +14,10 @@ import java.util.*
  * MinIO가 활성화된 경우에만 사용됨
  */
 @Service
-@ConditionalOnProperty(name = ["minio.enabled"], havingValue = "true")
+// minio.enabled 설정이 없어도 기본적으로 활성화
 class FileStorageService(
     private val minioClient: MinioClient,
-    @Value("\${minio.bucketName}") private val bucketName: String
+    @Value("\${minio.bucket-name:pleasybank}") private val bucketName: String
 ) {
 
     /**

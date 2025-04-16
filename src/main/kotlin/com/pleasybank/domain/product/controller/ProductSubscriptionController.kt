@@ -31,7 +31,8 @@ class ProductSubscriptionController(
         @Valid @RequestBody request: CreateProductSubscriptionRequest
     ): ResponseEntity<ProductSubscriptionResponse> {
         val userId = extractUserId(userDetails)
-        val response = financialProductService.createProductSubscription(userId, request)
+        request.userId = userId
+        val response = financialProductService.createProductSubscription(request)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
 

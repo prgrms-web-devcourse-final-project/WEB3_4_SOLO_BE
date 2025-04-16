@@ -1,5 +1,6 @@
 package com.pleasybank.domain.account.entity
 
+import com.pleasybank.domain.product.entity.FinancialProduct
 import com.pleasybank.domain.user.entity.User
 import jakarta.persistence.*
 import java.math.BigDecimal
@@ -30,12 +31,13 @@ data class Account(
     val accountName: String,
     
     @Column(name = "account_type", nullable = false)
-    val accountType: String,
+    @Enumerated(EnumType.STRING)
+    val accountType: AccountType,
     
     @Column(nullable = false, precision = 19, scale = 4)
     var balance: BigDecimal,
     
-    @Column(name = "fintech_use_num", unique = true)
+    @Column(name = "fintech_use_num")
     val fintechUseNum: String? = null,
     
     @Column(name = "created_at", nullable = false)
@@ -45,5 +47,9 @@ data class Account(
     var updatedAt: LocalDateTime = LocalDateTime.now(),
     
     @Column(nullable = false)
-    var status: String = "ACTIVE"
+    var status: String = "ACTIVE",
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    val product: FinancialProduct? = null
 ) 

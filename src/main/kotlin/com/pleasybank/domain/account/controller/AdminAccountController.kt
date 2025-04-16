@@ -4,6 +4,7 @@ import com.pleasybank.core.security.CurrentUser
 import com.pleasybank.domain.account.dto.AccountResponse
 import com.pleasybank.domain.account.dto.UpdateBalanceRequest
 import com.pleasybank.domain.account.service.AccountService
+import com.pleasybank.domain.auth.model.CustomUserDetails
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -22,7 +23,7 @@ class AdminAccountController(
     @PostMapping("/{id}/add-funds")
     @PreAuthorize("hasRole('ADMIN')")
     fun addFundsToAccount(
-        @CurrentUser adminId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @PathVariable id: Long,
         @Valid @RequestBody request: UpdateBalanceRequest
     ): ResponseEntity<AccountResponse> {

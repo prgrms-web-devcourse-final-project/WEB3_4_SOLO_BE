@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 @RestController
 @RequestMapping("/api/products")
@@ -94,11 +96,74 @@ class FinancialProductController(
     @PostMapping("/subscriptions")
     @PreAuthorize("isAuthenticated()")
     fun createProductSubscription(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: com.pleasybank.domain.auth.model.CustomUserDetails,
         @Valid @RequestBody request: CreateProductSubscriptionRequest
     ): ResponseEntity<ProductSubscriptionResponse> {
-        val subscription = financialProductService.createProductSubscription(userId, request)
-        return ResponseEntity.status(HttpStatus.CREATED).body(subscription)
+        try {
+            val userId = principal.id
+            // 상세 로그 추가
+            println("상품 구독 요청 받음: userId=$userId, request=$request")
+            println("상품 요청 상세: productId=${request.productId}, amount=${request.amount}, accountId=${request.accountId}, term=${request.term}")
+            
+            // userId 설정 (명시적으로 값 출력)
+            println("사용자 ID 설정 전: ${request.userId}")
+            request.userId = userId
+            println("사용자 ID 설정 후: ${request.userId}")
+            
+            // term 필드 로깅
+            if (request.term != null) {
+                println("기간(term) 값: ${request.term}, 타입: ${request.term!!::class.java}")
+            } else {
+                println("기간(term) 값이 null입니다")
+            }
+            
+            // 상품 가입 처리
+            val subscription = financialProductService.createProductSubscription(request)
+            println("상품 구독 생성 성공: ${subscription.id}")
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(subscription)
+        } catch (e: Exception) {
+            println("상품 구독 생성 중 오류 발생: ${e.message}")
+            println("오류 클래스: ${e.javaClass.name}")
+            e.printStackTrace()
+            
+            // 상세 오류 정보 로깅
+            val errorDetails = mapOf(
+                "userId" to principal.id,
+                "productId" to request.productId,
+                "amount" to request.amount,
+                "accountId" to request.accountId,
+                "term" to request.term,
+                "exceptionType" to e.javaClass.name,
+                "message" to (e.message ?: "알 수 없는 오류")
+            )
+            println("오류 상세 정보: $errorDetails")
+            
+            // 구조화된 오류 응답 생성
+            val errorResponse = mapOf(
+                "status" to 500,
+                "error" to "Internal Server Error",
+                "message" to (e.message ?: "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요."),
+                "path" to "/api/products/subscriptions",
+                "details" to errorDetails
+            )
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ProductSubscriptionResponse(
+                    id = -1,
+                    userId = principal.id,
+                    productId = request.productId,
+                    productName = "오류 발생",
+                    amount = request.amount,
+                    startDate = LocalDate.now(),
+                    endDate = null,
+                    maturityDate = null,
+                    expectedReturn = null,
+                    status = "ERROR",
+                    createdAt = LocalDateTime.now(),
+                    errorMessage = e.message
+                ))
+        }
     }
 
     @Operation(summary = "상품 구독 상세 조회", description = "특정 상품 구독 정보를 조회합니다.")
@@ -115,10 +180,10 @@ class FinancialProductController(
     @GetMapping("/subscriptions")
     @PreAuthorize("isAuthenticated()")
     fun getUserProductSubscriptions(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: com.pleasybank.domain.auth.model.CustomUserDetails,
         @PageableDefault(size = 10, sort = ["createdAt"]) pageable: Pageable
     ): ResponseEntity<Page<ProductSubscriptionResponse>> {
-        val subscriptions = financialProductService.getUserProductSubscriptions(userId, pageable)
+        val subscriptions = financialProductService.getUserProductSubscriptions(principal.id, pageable)
         return ResponseEntity.ok(subscriptions)
     }
 
@@ -147,9 +212,9 @@ class FinancialProductController(
     @GetMapping("/user/total-invested")
     @PreAuthorize("isAuthenticated()")
     fun getUserTotalInvestedAmount(
-        @CurrentUser userId: Long
+        @CurrentUser principal: com.pleasybank.domain.auth.model.CustomUserDetails
     ): ResponseEntity<Map<String, BigDecimal>> {
-        val totalAmount = financialProductService.getUserTotalInvestedAmount(userId)
+        val totalAmount = financialProductService.getUserTotalInvestedAmount(principal.id)
         return ResponseEntity.ok(mapOf("totalInvestedAmount" to totalAmount))
     }
 

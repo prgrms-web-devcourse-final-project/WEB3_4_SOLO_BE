@@ -71,6 +71,22 @@ data class User(
         return userRoles.any { it.role.name == roleName }
     }
     
+    // 사용자가 관리자인지 확인하는 메서드
+    fun isAdmin(): Boolean {
+        return hasRole("ROLE_ADMIN") || email == "admin@pleasybank.com"
+    }
+    
+    // 사용자 정보를 반환하는 메서드
+    fun toUserInfo(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "email" to email,
+            "name" to name,
+            "roles" to userRoles.map { it.role.name },
+            "profileImageUrl" to profileImageUrl
+        )
+    }
+    
     // data 클래스의 copy 대신 동적 필드 업데이트를 위한 메서드
     fun updateOAuth2Info(provider: String, providerId: String): User {
         this.provider = provider

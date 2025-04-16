@@ -3,6 +3,7 @@ package com.pleasybank.domain.account.controller
 import com.pleasybank.core.security.CurrentUser
 import com.pleasybank.domain.account.dto.*
 import com.pleasybank.domain.account.service.AccountService
+import com.pleasybank.domain.auth.model.CustomUserDetails
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -26,10 +27,10 @@ class AccountController(
     @PostMapping
     @PreAuthorize("hasRole('USER')")
     fun createAccount(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @Valid @RequestBody request: CreateAccountRequest
     ): ResponseEntity<AccountResponse> {
-        val response = accountService.createAccount(userId, request)
+        val response = accountService.createAccount(principal.id, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
 
@@ -47,10 +48,10 @@ class AccountController(
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
     fun getMyAccounts(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @PageableDefault(size = 10, sort = ["createdAt"]) pageable: Pageable
     ): ResponseEntity<Page<AccountResponse>> {
-        val response = accountService.getUserAccounts(userId, pageable)
+        val response = accountService.getUserAccounts(principal.id, pageable)
         return ResponseEntity.ok(response)
     }
 
@@ -58,9 +59,9 @@ class AccountController(
     @GetMapping("/my/total-balance")
     @PreAuthorize("isAuthenticated()")
     fun getMyTotalBalance(
-        @CurrentUser userId: Long
+        @CurrentUser principal: CustomUserDetails
     ): ResponseEntity<Map<String, BigDecimal>> {
-        val totalBalance = accountService.getUserTotalBalance(userId)
+        val totalBalance = accountService.getUserTotalBalance(principal.id)
         return ResponseEntity.ok(mapOf("totalBalance" to totalBalance))
     }
 

@@ -32,6 +32,7 @@ class AuthServiceImpl(
     private val authenticationManager: AuthenticationManager,
     private val cacheService: CacheService,
     private val kakaoApiClient: KakaoApiClient,
+    private val customUserDetailsService: CustomUserDetailsService,
     
     @Value("\${app.oauth2.kakao.client-id}")
     private val kakaoClientId: String,
@@ -93,22 +94,25 @@ class AuthServiceImpl(
     @Transactional
     override fun login(request: LoginRequest): TokenResponse {
         try {
-            // 인증 시도
-            authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken(request.email, request.password)
-            )
-
             // 사용자 정보 가져오기
             val user = userRepository.findByEmail(request.email)
                 ?: throw InvalidCredentialsException("유효하지 않은 이메일 또는 비밀번호입니다.")
+            
+            // 비밀번호 검증
+            if (!passwordEncoder.matches(request.password, user.password)) {
+                throw InvalidCredentialsException("유효하지 않은 이메일 또는 비밀번호입니다.")
+            }
 
             // 로그인 시간 업데이트
             user.lastLoginAt = LocalDateTime.now()
             user.updatedAt = LocalDateTime.now()
             userRepository.save(user)
 
+            // 역할 정보 확인
+            val roles = if (user.isAdmin()) listOf("ROLE_ADMIN", "ROLE_USER") else listOf("ROLE_USER")
+
             // JWT 토큰 발급
-            val accessToken = jwtTokenProvider.createToken(user.id!!, listOf("ROLE_USER"))
+            val accessToken = jwtTokenProvider.createToken(user.id!!, roles)
             val refreshToken = UUID.randomUUID().toString()
 
             // 리프레시 토큰 저장
@@ -117,9 +121,11 @@ class AuthServiceImpl(
             return TokenResponse(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
-                tokenType = "Bearer"
+                tokenType = "Bearer",
+                user = user.toUserInfo()
             )
-        } catch (e: AuthenticationException) {
+        } catch (e: Exception) {
+            logger.error("로그인 처리 중 오류 발생", e)
             throw InvalidCredentialsException("유효하지 않은 이메일 또는 비밀번호입니다.")
         }
     }

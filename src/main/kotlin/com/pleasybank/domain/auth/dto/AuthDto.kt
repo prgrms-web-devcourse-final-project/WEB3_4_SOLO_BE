@@ -43,5 +43,6 @@ data class LoginRequest(
 data class TokenResponse(
     val accessToken: String,
     val refreshToken: String,
-    val tokenType: String
+    val tokenType: String,
+    val user: Map<String, Any?>? = null
 ) 

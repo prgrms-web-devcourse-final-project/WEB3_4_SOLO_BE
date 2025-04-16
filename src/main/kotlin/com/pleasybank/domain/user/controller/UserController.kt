@@ -2,6 +2,7 @@ package com.pleasybank.domain.user.controller
 
 import com.pleasybank.core.exception.ResourceNotFoundException
 import com.pleasybank.core.security.CurrentUser
+import com.pleasybank.domain.auth.model.CustomUserDetails
 import com.pleasybank.domain.user.dto.UserDto
 import com.pleasybank.domain.user.service.UserService
 import io.swagger.v3.oas.annotations.Operation
@@ -21,8 +22,8 @@ class UserController(private val userService: UserService) {
     @Operation(summary = "현재 사용자 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    fun getCurrentUser(@CurrentUser userId: Long): ResponseEntity<UserDto.Response> {
-        val user = userService.getUserById(userId)
+    fun getCurrentUser(@CurrentUser principal: CustomUserDetails): ResponseEntity<UserDto.Response> {
+        val user = userService.getUserById(principal.id)
         return ResponseEntity.ok(user)
     }
 
@@ -37,10 +38,10 @@ class UserController(private val userService: UserService) {
     @PutMapping("/me")
     @PreAuthorize("isAuthenticated()")
     fun updateUser(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @Valid @RequestBody request: UserDto.UpdateRequest
     ): ResponseEntity<UserDto.Response> {
-        val updatedUser = userService.updateUser(userId, request)
+        val updatedUser = userService.updateUser(principal.id, request)
         return ResponseEntity.ok(updatedUser)
     }
 
@@ -55,10 +56,10 @@ class UserController(private val userService: UserService) {
     @PostMapping("/me/password")
     @PreAuthorize("isAuthenticated()")
     fun changePassword(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @Valid @RequestBody request: UserDto.PasswordUpdateRequest
     ): ResponseEntity<Map<String, String>> {
-        val success = userService.updatePassword(userId, request.currentPassword, request.newPassword)
+        val success = userService.updatePassword(principal.id, request.currentPassword, request.newPassword)
         
         return if (success) {
             ResponseEntity.ok(mapOf("message" to "비밀번호가 성공적으로 변경되었습니다."))
@@ -71,10 +72,10 @@ class UserController(private val userService: UserService) {
     @PostMapping("/me/profile-image", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @PreAuthorize("isAuthenticated()")
     fun uploadProfileImage(
-        @CurrentUser userId: Long,
+        @CurrentUser principal: CustomUserDetails,
         @RequestParam("file") file: MultipartFile
     ): ResponseEntity<UserDto.Response> {
-        val updatedUser = userService.updateProfileImage(userId, file)
+        val updatedUser = userService.updateProfileImage(principal.id, file)
         return ResponseEntity.ok(updatedUser)
     }
 } 
